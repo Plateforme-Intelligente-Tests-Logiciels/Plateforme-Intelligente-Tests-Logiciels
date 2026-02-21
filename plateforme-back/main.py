@@ -16,6 +16,9 @@ from models import (
     LogSystems, AuditLog
 )
 
+# Import routes
+from routes.auth import router as auth_router
+
 app = FastAPI(
     title="Plateforme Intelligente Tests Logiciels",
     description="API pour la gestion intelligente des tests logiciels avec approche Scrum",
@@ -33,7 +36,7 @@ def startup():
         print("✓ Database connection successful!")
         print(f"✓ Connected to: {engine.url.database}")
         
-        # Create all tables
+        # Create all tables (will only create new ones, skip existing)
         Base.metadata.create_all(bind=engine)
         print("✓ All database tables created successfully!")
         
@@ -47,6 +50,9 @@ def startup():
 def read_root():
     return {"message": "FastAPI is running 🚀"}
 
+
+# 🔹 Include routers
+app.include_router(auth_router)
 
 # 🔹 Test DB route
 @app.get("/test-db")
