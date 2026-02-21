@@ -2,21 +2,44 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from bd.database import engine, get_db
+from db.database import engine, get_db, Base
 
-app = FastAPI()
+# Import all models to register them with SQLAlchemy
+from models import (
+    Utilisateur, Role, Permission,
+    Projet, Module, Epic, UserStory, Sprint,
+    CahierDeTests, Test, TestUnitaire, TestAutomatise, TestManuel, ScenarioTest, ValidationTest,
+    ExecutionTest, ResultatTest,
+    Anomalie,
+    RapportQA, IndicateurQualite, RecommandationQualite,
+    Notification, TypeNotification,
+    LogSystems, AuditLog
+)
+
+app = FastAPI(
+    title="Plateforme Intelligente Tests Logiciels",
+    description="API pour la gestion intelligente des tests logiciels avec approche Scrum",
+    version="1.0.0"
+)
 
 
-# 🔹 Test database connection on startup
+# 🔹 Initialize database and create tables on startup
 @app.on_event("startup")
 def startup():
     try:
+        # Test database connection
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         print("✓ Database connection successful!")
         print(f"✓ Connected to: {engine.url.database}")
+        
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        print("✓ All database tables created successfully!")
+        
     except Exception as e:
-        print(f"✗ Database connection failed: {e}")
+        print(f"✗ Database initialization failed: {e}")
+        raise
 
 
 # 🔹 Simple test route
