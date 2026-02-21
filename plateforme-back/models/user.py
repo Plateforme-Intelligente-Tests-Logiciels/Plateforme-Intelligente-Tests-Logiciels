@@ -52,7 +52,7 @@ class Role(Base):
     nom = Column(String)
     code = Column(String)
     description = Column(String)
-    niveauAcces = Column(Integer)
+    niveau_acces = Column(Integer)
 
     # Relations
     users = relationship("Utilisateur", back_populates="role")

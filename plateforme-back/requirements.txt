@@ -4,3 +4,5 @@ requests==2.31.0
 python-dotenv==1.0.0
 sqlalchemy==2.0.43
 psycopg2-binary==2.9.10
+passlib[bcrypt]==1.7.4
+python-jose==3.3.0
