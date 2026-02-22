@@ -124,10 +124,32 @@ async def get_me(db: db_dependency, user_id: Annotated[int, Depends(get_current_
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
 
-    return {
+    response = {
         "id": user.id,
         "nom": user.nom,
         "email": user.email,
         "telephone": user.telephone,
-        "role_id": user.role_id
+        "role_id": user.role_id,
+        "actif": user.actif
     }
+    
+    # Ajouter les informations du rôle si disponible
+    if user.role:
+        response["role"] = {
+            "id": user.role.id,
+            "nom": user.role.nom,
+            "code": user.role.code,
+            "description": user.role.description,
+            "niveau_acces": user.role.niveau_acces,
+            "permissions": [
+                {
+                    "id": p.id,
+                    "nom": p.nom,
+                    "resource": p.resource,
+                    "action": p.action
+                }
+                for p in user.role.permissions
+            ]
+        }
+    
+    return response
