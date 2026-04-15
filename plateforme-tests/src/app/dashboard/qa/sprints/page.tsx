@@ -6,6 +6,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { ProjectSelectorCard } from "@/components/dashboard/ProjectSelectorCard";
 import { ROUTES } from "@/lib/constants";
+import { getUserStoryStatusLabel } from "@/lib/userStoryStatus";
 import { getMyProjectsAsMember } from "@/features/projects/api";
 import { getSprints } from "@/features/sprints/api";
 import { Project, Sprint } from "@/types";
@@ -253,7 +254,7 @@ export default function SprintsPage() {
                                         : "bg-gray-500/20 text-gray-400"
                                     }`}
                                   >
-                                    {userStory.statut}
+                                    {getUserStoryStatusLabel(userStory.statut)}
                                   </span>
                                   {userStory.priorite && (
                                     <span

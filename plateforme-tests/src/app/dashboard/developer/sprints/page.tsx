@@ -6,14 +6,22 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { ProjectSelectorCard } from "@/components/dashboard/ProjectSelectorCard";
 import { ROUTES } from "@/lib/constants";
+import { getUserStoryStatusLabel } from "@/lib/userStoryStatus";
 import { getMyProjectsAsMember } from "@/features/projects/api";
 import { getSprints } from "@/features/sprints/api";
-import { Project, Sprint } from "@/types";
+import { getCahierDetail, updateCasTest } from "@/features/cahier-tests/api";
+import { useAuthStore } from "@/features/auth/store";
+import { CasTest, Project, Sprint } from "@/types";
 
 export default function SprintsPage() {
+  const { user } = useAuthStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [cahierId, setCahierId] = useState<number | null>(null);
+  const [casTests, setCasTests] = useState<CasTest[]>([]);
+  const [fixingCaseIds, setFixingCaseIds] = useState<Record<number, boolean>>({});
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [expandedSprintId, setExpandedSprintId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -24,8 +32,99 @@ export default function SprintsPage() {
   useEffect(() => {
     if (selectedProject) {
       loadSprints(selectedProject.id);
+      loadCahierData(selectedProject.id);
+      setFeedbackMessage(null);
     }
   }, [selectedProject]);
+
+  const normalizeName = (value?: string | null) =>
+    (value || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+
+  const extractAssigneeTokens = (value?: string | null): string[] => {
+    const text = (value || "").trim();
+    if (!text) {
+      return [];
+    }
+    const tokens = new Set<string>([normalizeName(text)]);
+    const match = text.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+    if (match) {
+      const namePart = normalizeName(match[1]);
+      const emailPart = normalizeName(match[2]);
+      if (namePart) tokens.add(namePart);
+      if (emailPart) tokens.add(emailPart);
+    }
+    return Array.from(tokens).filter(Boolean);
+  };
+
+  const isAssignedToCurrentUser = (cas: CasTest): boolean => {
+    const userTokens = [normalizeName(user?.nom), normalizeName(user?.email)].filter(Boolean);
+    if (userTokens.length === 0) {
+      return false;
+    }
+    const assigneeTokens = extractAssigneeTokens(cas.type_utilisateur);
+    return assigneeTokens.some((token) => userTokens.includes(token));
+  };
+
+  const loadCahierData = async (projectId: number) => {
+    try {
+      const detail = await getCahierDetail(projectId);
+      setCahierId(detail.id);
+      setCasTests(detail.cas_tests || []);
+    } catch {
+      setCahierId(null);
+      setCasTests([]);
+    }
+  };
+
+  const getMyFailingCasesForStory = (userStoryId: number): CasTest[] =>
+    casTests.filter(
+      (cas) =>
+        cas.user_story_id === userStoryId &&
+        (cas.statut_test === "Échoué" || cas.statut_test === "Bloqué") &&
+        isAssignedToCurrentUser(cas)
+    );
+
+  const handleMarkFixedAndNotify = async (cas: CasTest) => {
+    if (!selectedProject || !cahierId) {
+      return;
+    }
+    setFeedbackMessage(null);
+    setFixingCaseIds((prev) => ({ ...prev, [cas.id]: true }));
+    try {
+      const stamp = new Date().toLocaleString("fr-FR");
+      const fixNote = `Correction appliquée par développeur le ${stamp}. Merci de retester.`;
+      const nextComment = cas.commentaire ? `${cas.commentaire}\n${fixNote}` : fixNote;
+
+      await updateCasTest(selectedProject.id, cahierId, cas.id, {
+        statut_test: "Non exécuté",
+        commentaire: nextComment,
+      });
+
+      await Promise.all([
+        loadSprints(selectedProject.id),
+        loadCahierData(selectedProject.id),
+      ]);
+
+      setFeedbackMessage(
+        `Cas ${cas.test_ref} marqué corrigé. Le testeur a été notifié pour retest.`
+      );
+    } catch (error) {
+      console.error("Erreur lors du passage en corrigé:", error);
+      setFeedbackMessage(
+        `Impossible de marquer ${cas.test_ref} comme corrigé. Vérifiez que le cas vous est bien assigné.`
+      );
+    } finally {
+      setFixingCaseIds((prev) => {
+        const copy = { ...prev };
+        delete copy[cas.id];
+        return copy;
+      });
+    }
+  };
 
   const loadProjects = async () => {
     try {
@@ -135,6 +234,11 @@ export default function SprintsPage() {
       }
     >
       <div className="max-w-350 mx-auto">
+        {feedbackMessage && (
+          <div className="mb-4 rounded-lg border border-[#3b4754] bg-[#1f2730] px-4 py-3 text-sm text-[#d7e0ea]">
+            {feedbackMessage}
+          </div>
+        )}
         <ProjectSelectorCard
           projects={projects}
           selectedProjectId={selectedProject?.id ?? null}
@@ -254,7 +358,7 @@ export default function SprintsPage() {
                                         : "bg-gray-500/20 text-gray-400"
                                     }`}
                                   >
-                                    {userStory.statut}
+                                    {getUserStoryStatusLabel(userStory.statut)}
                                   </span>
                                   {userStory.priorite && (
                                     <span
@@ -275,6 +379,38 @@ export default function SprintsPage() {
                                 <h6 className="text-white font-medium">
                                   {userStory.titre}
                                 </h6>
+
+                                {getMyFailingCasesForStory(userStory.id).length > 0 && (
+                                  <div className="mt-3 space-y-2">
+                                    {getMyFailingCasesForStory(userStory.id).map((cas) => (
+                                      <div
+                                        key={cas.id}
+                                        className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2"
+                                      >
+                                        <div className="text-sm text-red-200">
+                                          <span className="font-semibold">{cas.test_ref}</span>
+                                          <span className="ml-2">{cas.statut_test}</span>
+                                          {cas.bug_titre_correction && (
+                                            <span className="ml-2 text-red-300/80">• {cas.bug_titre_correction}</span>
+                                          )}
+                                        </div>
+                                        <button
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            handleMarkFixedAndNotify(cas);
+                                          }}
+                                          disabled={!!fixingCaseIds[cas.id] || !cahierId}
+                                          className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">task_alt</span>
+                                          {fixingCaseIds[cas.id]
+                                            ? "Traitement..."
+                                            : "Marquer corrigé"}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               {userStory.points && (
                                 <div className="ml-4 flex items-center justify-center w-10 h-10 bg-primary/20 rounded-lg">

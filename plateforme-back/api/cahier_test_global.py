@@ -143,6 +143,32 @@ def _is_case_assigned_to_user(cas, current_user: Utilisateur) -> bool:
     return bool(assignee_tokens.intersection({t for t in user_tokens if t}))
 
 
+def _normalize_role_code(value: Optional[str]) -> str:
+    return (value or "").strip().upper()
+
+
+def _is_developer_role(role_code: str) -> bool:
+    normalized = _normalize_role_code(role_code)
+    return normalized in {ROLE_DEVELOPPEUR, "DEVELOPER"}
+
+
+def _is_user_story_dev_or_assignee(cas, current_user: Utilisateur) -> bool:
+    user_story = getattr(cas, "user_story", None)
+    if not user_story or not current_user:
+        return False
+    return current_user.id in {user_story.developerId, user_story.assigneeId}
+
+
+def _is_mark_corrected_payload(payload: dict, cas) -> bool:
+    allowed_keys = {"statut_test", "commentaire"}
+    if not set(payload.keys()).issubset(allowed_keys):
+        return False
+    if payload.get("statut_test") != "Non exécuté":
+        return False
+    current_status = (getattr(cas, "statut_test", None) or "").strip()
+    return current_status in {"Échoué", "Bloqué"}
+
+
 def _ensure_can_update_cas_test(
     current_user: Utilisateur,
     body: UpdateCasTestRequest,
@@ -178,12 +204,18 @@ def _ensure_can_update_cas_test(
                     )
         return
 
-    if role_code in {ROLE_TESTEUR_QA, ROLE_DEVELOPPEUR}:
+    if role_code in {ROLE_TESTEUR_QA, ROLE_DEVELOPPEUR} or _is_developer_role(role_code):
         if "type_utilisateur" in payload:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Seul le Scrum Master peut assigner un membre développeur ou testeur.",
             )
+
+        if _is_developer_role(role_code):
+            can_mark_corrected = _is_mark_corrected_payload(payload, cas) and _is_user_story_dev_or_assignee(cas, current_user)
+            if can_mark_corrected:
+                return
+
         if not _is_case_assigned_to_user(cas, current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

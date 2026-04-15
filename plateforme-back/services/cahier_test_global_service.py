@@ -29,7 +29,7 @@ from models.notification import TypeNotification
 from models.ai_generation import AIGeneration
 from models.rapports import RapportQA, IndicateurQualite, RecommandationQualite
 from models.scrum import Projet, Sprint, UserStory, Module, Epic
-from models.cahier_test_global import CahierTestGlobal, CasTest
+from models.cahier_test_global import CahierTestGlobal, CasTest, CasTestHistory
 from models.user import Utilisateur
 from repositories.ai_generation_repository import AIGenerationRepository
 from repositories.cahier_test_global_repository import CahierTestGlobalRepository
@@ -275,6 +275,133 @@ class CahierTestGlobalService:
                 projet_id,
                 exc,
             )
+
+    @staticmethod
+    def _normalize_role_code(value: Optional[str]) -> str:
+        raw = unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode("ascii")
+        return raw.strip().upper().replace(" ", "_")
+
+    @staticmethod
+    def _user_story_ref(user_story: UserStory) -> str:
+        return user_story.reference or f"US-{user_story.id}"
+
+    def _get_actor_role_code(self, user_id: Optional[int]) -> str:
+        if not user_id:
+            return ""
+        actor = self.db.query(Utilisateur).options(joinedload(Utilisateur.role)).filter(Utilisateur.id == user_id).first()
+        if not actor or not actor.role:
+            return ""
+        return self._normalize_role_code(actor.role.code)
+
+    def _is_developer_role_code(self, role_code: str) -> bool:
+        normalized = self._normalize_role_code(role_code)
+        return normalized in {
+            self._normalize_role_code(ROLE_DEVELOPPEUR),
+            "DEVELOPER",
+        }
+
+    def _apply_test_cycle_to_user_story(
+        self,
+        cas_test: CasTest,
+        previous_statut_test: Optional[str],
+        changed_by_id: Optional[int],
+    ) -> None:
+        user_story = getattr(cas_test, "user_story", None)
+        if not user_story:
+            return
+
+        failing_statuses = {"Échoué", "Bloqué"}
+        previous_status = (previous_statut_test or "").strip()
+        new_status = (cas_test.statut_test or "").strip()
+
+        if new_status in failing_statuses:
+            if user_story.statut != "in_progress":
+                user_story.statut = "in_progress"
+
+            dev_ids = {user_story.developerId, user_story.assigneeId}
+            dev_ids = {uid for uid in dev_ids if uid and uid != user_story.testerId}
+            if dev_ids:
+                us_ref = self._user_story_ref(user_story)
+                self.notification_service.notify_users(
+                    user_ids=list(dev_ids),
+                    titre=f"Bug detecte sur {us_ref}",
+                    message=(
+                        f"Le cas de test {cas_test.test_ref} est {new_status}. "
+                        f"La user story {us_ref} est repassee en cours pour correction."
+                    ),
+                    notification_type=TypeNotification.BUG_DETECTED,
+                    priorite="haute",
+                    exclude_user_id=changed_by_id,
+                    dedupe_window_seconds=0,
+                )
+            return
+
+        actor_role_code = self._get_actor_role_code(changed_by_id)
+        is_developer_action = self._is_developer_role_code(actor_role_code)
+        leaving_failure_state = previous_status in failing_statuses and new_status not in failing_statuses
+
+        # Dev marks correction complete (typically to "Non exécuté") -> notify tester for retest.
+        if is_developer_action and leaving_failure_state:
+            retest_user_ids: set[int] = set()
+            if user_story.testerId:
+                retest_user_ids.add(user_story.testerId)
+
+            # Fallback: notify the last user who set this case to failing status.
+            last_failure_history = (
+                self.db.query(CasTestHistory)
+                .filter(
+                    CasTestHistory.cas_test_id == cas_test.id,
+                    CasTestHistory.changed_by_id.isnot(None),
+                    CasTestHistory.new_statut_test.in_(list(failing_statuses)),
+                )
+                .order_by(CasTestHistory.changed_at.desc())
+                .first()
+            )
+            if last_failure_history and last_failure_history.changed_by_id:
+                retest_user_ids.add(last_failure_history.changed_by_id)
+
+            if changed_by_id:
+                retest_user_ids.discard(changed_by_id)
+
+            if not retest_user_ids:
+                logger.warning(
+                    "No tester recipient found for retest notification: cas_id=%s user_story_id=%s",
+                    cas_test.id,
+                    user_story.id,
+                )
+            else:
+                us_ref = self._user_story_ref(user_story)
+                self.notification_service.notify_users(
+                    user_ids=list(retest_user_ids),
+                    titre=f"Retest requis pour {us_ref}",
+                    message=(
+                        f"La correction du cas {cas_test.test_ref} est terminee. "
+                        f"Merci de relancer les tests sur la user story {us_ref}."
+                    ),
+                    notification_type=TypeNotification.TEST_ASSIGNED_TO_ME,
+                    priorite="moyenne",
+                    dedupe_window_seconds=0,
+                )
+
+        # User story is done only after successful retest and no failing case remains.
+        us_cases = (
+            self.db.query(CasTest)
+            .filter(
+                CasTest.cahier_id == cas_test.cahier_id,
+                CasTest.user_story_id == user_story.id,
+            )
+            .all()
+        )
+        has_failing_case = any((c.statut_test or "").strip() in failing_statuses for c in us_cases)
+        has_success_case = any((c.statut_test or "").strip() == "Réussi" for c in us_cases)
+
+        if has_failing_case:
+            if user_story.statut != "in_progress":
+                user_story.statut = "in_progress"
+            return
+
+        if has_success_case and user_story.statut != "done":
+            user_story.statut = "done"
 
     @staticmethod
     def _version_sort_key(version: str) -> tuple[int, int, int]:
@@ -533,6 +660,13 @@ class CahierTestGlobalService:
                 )
 
         updated = self.repo.update_cas_test(cas_id, cahier_id, payload)
+
+        if before["statut_test"] != updated.statut_test:
+            self._apply_test_cycle_to_user_story(
+                cas_test=updated,
+                previous_statut_test=before["statut_test"],
+                changed_by_id=changed_by_id,
+            )
 
         history_changed = any(
             [

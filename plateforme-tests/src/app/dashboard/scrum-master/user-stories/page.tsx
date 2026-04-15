@@ -8,6 +8,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { ProjectSelectorCard } from "@/components/dashboard/ProjectSelectorCard";
 import { Modal } from "@/components/Modal";
 import { ROUTES } from "@/lib/constants";
+import { getUserStoryStatusLabel } from "@/lib/userStoryStatus";
 import { getMyProjectsAsMember } from "@/features/projects/api";
 import { getModules } from "@/features/modules/api";
 import { getEpics } from "@/features/epics/api";
@@ -478,12 +479,12 @@ export default function UserStoriesPage() {
   const getStatusLabel = (statut: string) => {
     switch (statut) {
       case "done":
-        return "Terminée";
+        return getUserStoryStatusLabel("done");
       case "in_progress":
-        return "En cours";
+        return getUserStoryStatusLabel("in_progress");
       case "to_do":
       default:
-        return "À faire";
+        return getUserStoryStatusLabel("to_do");
     }
   };
 
@@ -617,9 +618,9 @@ export default function UserStoriesPage() {
                     className="w-full bg-[#283039] border border-[#3b4754] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
                   >
                     <option value="">Tous</option>
-                    <option value="to_do">À faire</option>
-                    <option value="in_progress">En cours</option>
-                    <option value="done">Terminées</option>
+                    <option value="to_do">À_FAIRE</option>
+                    <option value="in_progress">EN_COURS</option>
+                    <option value="done">TERMINÉ</option>
                   </select>
                 </div>
                 <div>
