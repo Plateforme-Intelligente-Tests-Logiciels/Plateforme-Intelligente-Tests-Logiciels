@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
@@ -140,6 +139,8 @@ app.add_middleware(
         "http://127.0.0.1:8081",
         "http://127.0.0.1:19006",
         "http://51.255.202.68",
+        "https://flowpilot.tn",
+        "https://www.flowpilot.tn",
     ],
     allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
@@ -150,10 +151,9 @@ app.add_middleware(
 # HTTPS enforcement (production uniquement)
 # En dev : mettre ENVIRONMENT=development dans .env pour désactiver
 if ENVIRONMENT == "production":
-    app.add_middleware(HTTPSRedirectMiddleware)
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*"],  # Restreindre en prod : ["mondomaine.com", "www.mondomaine.com"]
+        allowed_hosts=["flowpilot.tn", "www.flowpilot.tn"],  # Restreindre en prod : ["mondomaine.com", "www.mondomaine.com"]
     )
 
 
