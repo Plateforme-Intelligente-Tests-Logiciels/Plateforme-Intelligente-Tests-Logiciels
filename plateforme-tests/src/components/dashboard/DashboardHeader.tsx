@@ -125,13 +125,6 @@ const DASHBOARD_SEARCH_ITEMS: DashboardSearchItem[] = [
     roles: [ROLES.PRODUCT_OWNER],
   },
   {
-    title: "Roadmap",
-    href: `${ROUTES.PRODUCT_OWNER}/roadmap`,
-    description: "Vision produit et planning",
-    keywords: ["roadmap", "planning", "plan"],
-    roles: [ROLES.PRODUCT_OWNER],
-  },
-  {
     title: "Profil product owner",
     href: `${ROUTES.PRODUCT_OWNER}/profile`,
     description: "Profil du product owner",

@@ -129,7 +129,6 @@ export default function ProductOwnerDashboard() {
     { href: `${ROUTES.PRODUCT_OWNER}/sprints`, icon: "event", label: "Sprints" },
         { href: `${ROUTES.PRODUCT_OWNER}/cahier-tests`, icon: "check_circle", label: "Cahier de Tests" },
     { href: `${ROUTES.PRODUCT_OWNER}/rapports-qa`, icon: "assessment", label: "Rapports QA" },
-    { href: `${ROUTES.PRODUCT_OWNER}/roadmap`, icon: "map", label: "Roadmap" },
     { href: `${ROUTES.PRODUCT_OWNER}/profile`, icon: "account_circle", label: "Mon Profil" },
   ];
 
@@ -370,24 +369,7 @@ export default function ProductOwnerDashboard() {
             </div>
           </Link>
 
-          <Link href={`${ROUTES.PRODUCT_OWNER}/roadmap`}>
-            <div className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-[#3b4754] rounded-xl p-6 hover:border-primary/50 transition-colors cursor-pointer group">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="bg-green-500/20 rounded-full h-12 w-12 flex items-center justify-center group-hover:bg-green-500/30 transition-colors">
-                  <span className="material-symbols-outlined text-green-400 text-[28px]">
-                    map
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-white text-lg font-bold">Roadmap</h3>
-                  <p className="text-slate-500 dark:text-[#9dabb9] text-xs">Vision stratégique</p>
-                </div>
-              </div>
-              <p className="text-slate-500 dark:text-[#9dabb9] text-sm">
-                Visualiser la roadmap produit et les jalons clés
-              </p>
-            </div>
-          </Link>
+
 
           <Link href={`${ROUTES.PRODUCT_OWNER}/sprints`}>
             <div className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-[#3b4754] rounded-xl p-6 hover:border-primary/50 transition-colors cursor-pointer group">

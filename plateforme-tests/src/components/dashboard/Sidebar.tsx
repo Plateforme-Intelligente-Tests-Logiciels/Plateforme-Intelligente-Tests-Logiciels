@@ -43,7 +43,6 @@ export function Sidebar({ title, subtitle, icon, links }: SidebarProps) {
     "Rôles": "sidebar.roles",
     "Paramètres": "sidebar.settings",
     "Logs": "sidebar.logs",
-    "Roadmap": "sidebar.roadmap",
     "Backlog": "sidebar.backlog",
     "Sprints": "sidebar.sprints",
     "User Stories": "sidebar.user_stories",

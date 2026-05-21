@@ -102,6 +102,13 @@ export default function ProjectManagementModal({
   const [aiLoading, setAiLoading] = useState(false);
   const [initialAttachment, setInitialAttachment] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const todayString = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
   const [error, setError] = useState<string | null>(null);
 
   const detectedTheme = useMemo(() => {
@@ -183,6 +190,11 @@ export default function ProjectManagementModal({
 
     if (isDateRangeInvalid) {
       setError("La date de fin doit être postérieure ou égale à la date de début.");
+      return;
+    }
+
+    if (mode === "create" && formData.dateDebut && formData.dateDebut < todayString) {
+      setError("La date de début ne peut pas être antérieure à aujourd'hui.");
       return;
     }
 
@@ -326,6 +338,7 @@ export default function ProjectManagementModal({
               </label>
               <Input
                 type="date"
+                min={mode === "create" ? todayString : undefined}
                 value={formData.dateDebut}
                 onChange={(e) =>
                   setFormData({ ...formData, dateDebut: e.target.value })
@@ -339,6 +352,7 @@ export default function ProjectManagementModal({
               </label>
               <Input
                 type="date"
+                min={formData.dateDebut || todayString}
                 value={formData.dateFin}
                 onChange={(e) =>
                   setFormData({ ...formData, dateFin: e.target.value })

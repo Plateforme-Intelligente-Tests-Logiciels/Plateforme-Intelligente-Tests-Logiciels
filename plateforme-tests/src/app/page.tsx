@@ -427,11 +427,12 @@ export default function Home() {
             />
             FlowPilot
           </Link>
-          <div className="flex gap-6">
-            {["Contact"].map((item) => (
-              <Link key={item} href={item === "Contact" ? "#contact" : "#"} className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">{item}</Link>
-            ))}
-            <Link key="tarifs" href="tarifs" className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">Tarifs</Link>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 justify-center md:justify-end">
+            <Link href="#contact" className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">Contact</Link>
+            <Link href="/tarifs" className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">Tarifs</Link>
+            <Link href="/privacy" className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">Confidentialité</Link>
+            <Link href="/terms" className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">Conditions</Link>
+            <Link href="/support" className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">Support</Link>
           </div>
           <span className="text-sm text-slate-500">© 2026 FlowPilot. Tous droits réservés.</span>
         </div>

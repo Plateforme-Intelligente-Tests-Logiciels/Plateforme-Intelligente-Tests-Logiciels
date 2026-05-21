@@ -26,9 +26,28 @@ export function RegisterForm() {
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
+  // Real-time password strength validation rules
+  const password = form.password;
+  const checks = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+  const strengthCount = Object.values(checks).filter(Boolean).length;
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setLocalError(null);
+
+    // Validate password criteria
+    const isPasswordValid = Object.values(checks).every(Boolean);
+    if (!isPasswordValid) {
+      setLocalError("Your password must meet all the security requirements below.");
+      return;
+    }
+
     // Backend expects exact field names: nom, email, motDePasse, telephone, role_id
     const payload = {
       nom: form.nom.trim(),
@@ -197,7 +216,6 @@ export function RegisterForm() {
             id="reg-password"
             type={showPassword ? "text" : "password"}
             required
-            minLength={8}
             autoComplete="new-password"
             placeholder="Min. 8 characters"
             value={form.password}
@@ -214,6 +232,86 @@ export function RegisterForm() {
             </span>
           </button>
         </div>
+
+        {/* Dynamic Password Strength Indicator & Checklist */}
+        {password.length > 0 && (
+          <div className="mt-3 p-3.5 rounded-xl border border-slate-100 dark:border-primary-900/30 bg-slate-50/50 dark:bg-primary-950/20 space-y-3 transition-all duration-300">
+            {/* Strength Bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Password Strength:</span>
+                <span className={`font-bold transition-colors ${
+                  strengthCount <= 2 ? "text-red-500 dark:text-red-400" :
+                  strengthCount <= 4 ? "text-amber-500 dark:text-amber-400" :
+                  "text-emerald-500 dark:text-emerald-400"
+                }`}>
+                  {strengthCount <= 2 ? "Weak" : strengthCount <= 4 ? "Medium" : "Strong"}
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden flex gap-0.5">
+                <div className={`h-full transition-all duration-500 rounded-l ${
+                  strengthCount >= 1 
+                    ? (strengthCount <= 2 ? "bg-red-500" : strengthCount <= 4 ? "bg-amber-500" : "bg-emerald-500") 
+                    : "bg-transparent"
+                }`} style={{ width: '33.33%' }} />
+                <div className={`h-full transition-all duration-500 ${
+                  strengthCount >= 3 
+                    ? (strengthCount <= 4 ? "bg-amber-500" : "bg-emerald-500") 
+                    : "bg-transparent"
+                }`} style={{ width: '33.33%' }} />
+                <div className={`h-full transition-all duration-500 rounded-r ${
+                  strengthCount === 5 
+                    ? "bg-emerald-500" 
+                    : "bg-transparent"
+                }`} style={{ width: '33.33%' }} />
+              </div>
+            </div>
+
+            {/* Checklist Items */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] leading-relaxed">
+              <div className="flex items-center gap-1.5 transition-colors">
+                <span className={`material-symbols-outlined text-[15px] select-none ${checks.length ? 'text-emerald-500' : 'text-slate-400'}`}>
+                  {checks.length ? 'check_circle' : 'circle'}
+                </span>
+                <span className={checks.length ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-500 dark:text-slate-400'}>
+                  At least 8 characters
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 transition-colors">
+                <span className={`material-symbols-outlined text-[15px] select-none ${checks.uppercase ? 'text-emerald-500' : 'text-slate-400'}`}>
+                  {checks.uppercase ? 'check_circle' : 'circle'}
+                </span>
+                <span className={checks.uppercase ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-500 dark:text-slate-400'}>
+                  One uppercase letter
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 transition-colors">
+                <span className={`material-symbols-outlined text-[15px] select-none ${checks.lowercase ? 'text-emerald-500' : 'text-slate-400'}`}>
+                  {checks.lowercase ? 'check_circle' : 'circle'}
+                </span>
+                <span className={checks.lowercase ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-500 dark:text-slate-400'}>
+                  One lowercase letter
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 transition-colors">
+                <span className={`material-symbols-outlined text-[15px] select-none ${checks.number ? 'text-emerald-500' : 'text-slate-400'}`}>
+                  {checks.number ? 'check_circle' : 'circle'}
+                </span>
+                <span className={checks.number ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-500 dark:text-slate-400'}>
+                  One number (0-9)
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 transition-colors sm:col-span-2">
+                <span className={`material-symbols-outlined text-[15px] select-none ${checks.special ? 'text-emerald-500' : 'text-slate-400'}`}>
+                  {checks.special ? 'check_circle' : 'circle'}
+                </span>
+                <span className={checks.special ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-500 dark:text-slate-400'}>
+                  One special character (e.g. !@#$%^&*)
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Success */}

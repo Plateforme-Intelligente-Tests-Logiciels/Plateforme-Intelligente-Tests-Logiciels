@@ -6,7 +6,6 @@ export default {
     roles: "Roles & Permissions",
     settings: "Settings",
     logs: "Audit Logs",
-    roadmap: "Roadmap",
     backlog: "Backlog",
     sprints: "Sprints",
     user_stories: "User Stories",

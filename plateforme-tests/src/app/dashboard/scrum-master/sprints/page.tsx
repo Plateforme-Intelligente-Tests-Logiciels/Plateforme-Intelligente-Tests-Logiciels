@@ -687,137 +687,136 @@ function SprintsPageContent() {
               )}
             </div>
             <div className="space-y-4">
-            {visibleSprints.map((sprint, index) => (
-              <div
-                key={sprint.id}
-                className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-[#3b4754] rounded-xl p-6 hover:border-primary/50 transition-colors"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-slate-900 dark:text-white text-lg font-bold">
-                        {getSprintDisplayName(sprint, index)}
-                      </h3>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(
-                          getComputedStatus(sprint)
-                        )}`}
-                      >
-                        {getStatusLabel(getComputedStatus(sprint))}
-                      </span>
-                      {isSprintExpired(sprint) && (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400">
-                          Expiré
+              {visibleSprints.map((sprint, index) => (
+                <div
+                  key={sprint.id}
+                  className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-[#3b4754] rounded-xl p-6 hover:border-primary/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-slate-900 dark:text-white text-lg font-bold">
+                          {getSprintDisplayName(sprint, index)}
+                        </h3>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(
+                            getComputedStatus(sprint)
+                          )}`}
+                        >
+                          {getStatusLabel(getComputedStatus(sprint))}
                         </span>
-                      )}
-                    </div>
-                    {sprint.objectifSprint && (
-                      <p className="text-slate-500 dark:text-[#9dabb9] text-sm mb-3">{sprint.objectifSprint}</p>
-                    )}
-                    <div className="flex items-center gap-4 text-sm">
-                      {sprint.dateDebut && sprint.dateFin && (
-                        <div className="flex items-center gap-1 text-slate-500 dark:text-[#9dabb9]">
-                          <span className="material-symbols-outlined text-[16px]">event</span>
-                          <span className={isSprintExpired(sprint) ? "text-red-400 font-semibold" : undefined}>
-                            {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} -{" "}
-                            {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
+                        {isSprintExpired(sprint) && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400">
+                            Expiré
                           </span>
-                        </div>
+                        )}
+                      </div>
+                      {sprint.objectifSprint && (
+                        <p className="text-slate-500 dark:text-[#9dabb9] text-sm mb-3">{sprint.objectifSprint}</p>
                       )}
-                      {sprint.capaciteEquipe && (
-                        <div className="flex items-center gap-1 text-slate-500 dark:text-[#9dabb9]">
-                          <span className="material-symbols-outlined text-[16px]">speed</span>
-                          <span>Capacité: {sprint.capaciteEquipe} pts</span>
-                        </div>
-                      )}
-                      {sprint.userstories && (
-                        <div className="flex items-center gap-1 text-slate-500 dark:text-[#9dabb9]">
-                          <span className="material-symbols-outlined text-[16px]">description</span>
-                          <span>{sprint.userstories.length} user stories</span>
-                        </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        {sprint.dateDebut && sprint.dateFin && (
+                          <div className="flex items-center gap-1 text-slate-500 dark:text-[#9dabb9]">
+                            <span className="material-symbols-outlined text-[16px]">event</span>
+                            <span className={isSprintExpired(sprint) ? "text-red-400 font-semibold" : undefined}>
+                              {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} -{" "}
+                              {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
+                            </span>
+                          </div>
+                        )}
+                        {sprint.capaciteEquipe && (
+                          <div className="flex items-center gap-1 text-slate-500 dark:text-[#9dabb9]">
+                            <span className="material-symbols-outlined text-[16px]">speed</span>
+                            <span>Capacité: {sprint.capaciteEquipe} pts</span>
+                          </div>
+                        )}
+                        {sprint.userstories && (
+                          <div className="flex items-center gap-1 text-slate-500 dark:text-[#9dabb9]">
+                            <span className="material-symbols-outlined text-[16px]">description</span>
+                            <span>{sprint.userstories.length} user stories</span>
+                          </div>
+                        )}
+                      </div>
+                      {isSprintExpired(sprint) && sprint.dateFin && (
+                        <p className="text-red-400 text-xs font-semibold mt-2">
+                          Date expirée le {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
+                        </p>
                       )}
                     </div>
-                    {isSprintExpired(sprint) && sprint.dateFin && (
-                      <p className="text-red-400 text-xs font-semibold mt-2">
-                        Date expirée le {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                       {(() => {
                         const canStart = getComputedStatus(sprint) === "planifie";
                         return (
-                    <button
-                      onClick={() => handleStartSprint(sprint.id)}
-                        disabled={actionLoading === sprint.id}
-                        className={`p-2 rounded-lg transition-colors ${
-                          canStart ? "hover:bg-[#0bda5b]/20" : "opacity-70"
-                        }`}
-                      title="Démarrer"
-                    >
-                      <span className="material-symbols-outlined text-[#0bda5b]">play_arrow</span>
-                    </button>
+                          <button
+                            onClick={() => handleStartSprint(sprint.id)}
+                            disabled={actionLoading === sprint.id}
+                            className={`p-2 rounded-lg transition-colors ${canStart ? "hover:bg-[#0bda5b]/20" : "opacity-70"
+                              }`}
+                            title="Démarrer"
+                          >
+                            <span className="material-symbols-outlined text-[#0bda5b]">play_arrow</span>
+                          </button>
                         );
                       })()}
-                    <button
-                      onClick={() => openDetailsModal(sprint)}
-                      className="p-2 hover:bg-primary/20 rounded-lg transition-colors"
-                      title="Voir détails"
-                      type="button"
-                    >
-                      <span className="material-symbols-outlined text-primary">visibility</span>
-                    </button>
-                    <button
-                      onClick={() => openEditModal(sprint)}
-                      className="p-2 hover:bg-primary/20 rounded-lg transition-colors"
-                      title="Modifier"
-                      type="button"
-                    >
-                      <span className="material-symbols-outlined text-primary">edit</span>
-                    </button>
-                    {getComputedStatus(sprint) === "en_cours" && (
                       <button
-                        onClick={() => handleCloseSprint(sprint.id)}
-                        disabled={actionLoading === sprint.id}
-                        className="p-2 hover:bg-yellow-500/20 rounded-lg transition-colors disabled:opacity-50"
-                        title="Clôturer"
+                        onClick={() => openDetailsModal(sprint)}
+                        className="p-2 hover:bg-primary/20 rounded-lg transition-colors"
+                        title="Voir détails"
+                        type="button"
                       >
-                        <span className="material-symbols-outlined text-yellow-500">check_circle</span>
+                        <span className="material-symbols-outlined text-primary">visibility</span>
                       </button>
-                    )}
-                    <button
-                      onClick={() => handleDeleteSprint(sprint.id)}
-                      disabled={actionLoading === sprint.id}
-                      className="p-2 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
-                      title="Supprimer"
-                    >
-                      <span className="material-symbols-outlined text-red-400">delete</span>
-                    </button>
+                      <button
+                        onClick={() => openEditModal(sprint)}
+                        className="p-2 hover:bg-primary/20 rounded-lg transition-colors"
+                        title="Modifier"
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-primary">edit</span>
+                      </button>
+                      {getComputedStatus(sprint) === "en_cours" && (
+                        <button
+                          onClick={() => handleCloseSprint(sprint.id)}
+                          disabled={actionLoading === sprint.id}
+                          className="p-2 hover:bg-yellow-500/20 rounded-lg transition-colors disabled:opacity-50"
+                          title="Clôturer"
+                        >
+                          <span className="material-symbols-outlined text-yellow-500">check_circle</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteSprint(sprint.id)}
+                        disabled={actionLoading === sprint.id}
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+                        title="Supprimer"
+                      >
+                        <span className="material-symbols-outlined text-red-400">delete</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Progress Bar */}
-                {sprint.userstories && sprint.userstories.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#9dabb9] mb-2">
-                      <span>Progression</span>
-                      <span>
-                        {sprint.userstories.filter((us) => us.statut === "done").length} /{" "}
-                        {sprint.userstories.length} terminées
-                      </span>
+                  {/* Progress Bar */}
+                  {sprint.userstories && sprint.userstories.length > 0 && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#9dabb9] mb-2">
+                        <span>Progression</span>
+                        <span>
+                          {sprint.userstories.filter((us) => us.statut === "done").length} /{" "}
+                          {sprint.userstories.length} terminées
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-200 dark:bg-[#283039] rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all"
+                          style={{
+                            width: `${getSprintProgress(sprint)}%`,
+                          }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="w-full bg-slate-200 dark:bg-[#283039] rounded-full h-2 overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all"
-                        style={{
-                          width: `${getSprintProgress(sprint)}%`,
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              ))}
             </div>
           </>
         )}
@@ -851,19 +850,18 @@ function SprintsPageContent() {
               <div className="bg-slate-50 dark:bg-[#283039] border border-slate-200 dark:border-[#3b4754] rounded-lg p-4">
                 <p className="text-slate-500 dark:text-[#9dabb9] text-xs font-bold uppercase mb-2">Statut</p>
                 <span
-                  className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
-                    detailsSprint.statut === "en_cours"
+                  className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${detailsSprint.statut === "en_cours"
                       ? "bg-primary/20 text-primary"
                       : detailsSprint.statut === "termine"
-                      ? "bg-[#0bda5b]/20 text-[#0bda5b]"
-                      : "bg-[#9dabb9]/20 text-[#9dabb9]"
-                  }`}
+                        ? "bg-[#0bda5b]/20 text-[#0bda5b]"
+                        : "bg-[#9dabb9]/20 text-[#9dabb9]"
+                    }`}
                 >
                   {detailsSprint.statut === "en_cours"
                     ? "En cours"
                     : detailsSprint.statut === "termine"
-                    ? "Terminé"
-                    : "Planifié"}
+                      ? "Terminé"
+                      : "Planifié"}
                 </span>
               </div>
 
@@ -1027,11 +1025,10 @@ function SprintsPageContent() {
                       type="button"
                       onClick={() => handleEditDureeChange(duree)}
                       disabled={editStatut !== "planifie"}
-                      className={`py-2 rounded-lg text-sm font-bold transition-all ${
-                        editDureeJours === duree
+                      className={`py-2 rounded-lg text-sm font-bold transition-all ${editDureeJours === duree
                           ? "bg-primary text-white"
                           : "bg-slate-100 dark:bg-[#283039] text-slate-600 dark:text-[#9dabb9] hover:bg-slate-200 dark:hover:bg-[#3b4754]"
-                      } ${editStatut !== "planifie" ? "opacity-50 cursor-not-allowed" : ""}`}
+                        } ${editStatut !== "planifie" ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       {duree}j
                     </button>
@@ -1106,11 +1103,10 @@ function SprintsPageContent() {
                   <div
                     key={story.id}
                     onClick={() => handleToggleEditStory(story.id)}
-                    className={`bg-slate-50 dark:bg-[#283039] border rounded-lg p-3 cursor-pointer transition-all ${
-                      editSelectedStories.includes(story.id)
+                    className={`bg-slate-50 dark:bg-[#283039] border rounded-lg p-3 cursor-pointer transition-all ${editSelectedStories.includes(story.id)
                         ? "border-primary bg-primary/10"
                         : "border-slate-200 dark:border-[#3b4754] hover:border-primary/50"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start gap-3">
                       <input

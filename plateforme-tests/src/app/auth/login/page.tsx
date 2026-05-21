@@ -3,10 +3,15 @@ import { LoginForm } from "@/features/auth/components/LoginForm";
 import { API_URL } from "@/lib/constants";
 import Image from "next/image";
 import { Suspense } from "react";
+import { ThemeModeToggle } from "@/components/theme/ThemeModeToggle";
 
 export default function LoginPage() {
     return (
-        <div className="flex min-h-screen w-full">
+        <div className="flex min-h-screen w-full relative">
+            {/* Floating Theme Toggle */}
+            <div className="absolute top-6 right-6 z-50">
+                <ThemeModeToggle />
+            </div>
     {/* Left Section: Form */}
     <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 w-full lg:w-[45%] xl:w-[40%] bg-linear-to-b from-primary-50 via-white to-primary-100 dark:from-primary-950 dark:via-[#151219] dark:to-[#0f0b13] border-r border-primary-100/70 dark:border-primary-900/50">
         <div className="mx-auto w-full max-w-sm lg:w-96">

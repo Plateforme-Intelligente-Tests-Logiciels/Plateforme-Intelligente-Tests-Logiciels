@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Modal } from "@/components/Modal";
 import { Input } from "@/components/Input";
 import { Project, CreateProjectPayload, UpdateProjectPayload } from "@/types";
@@ -30,6 +30,14 @@ export default function ProjectModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const todayString = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
   useEffect(() => {
     if (mode === "edit" && project) {
       setFormData({
@@ -54,6 +62,18 @@ export default function ProjectModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Validate dates range and past date
+    if (formData.dateDebut && formData.dateFin && String(formData.dateFin) < String(formData.dateDebut)) {
+      setError("La date de fin doit être postérieure ou égale à la date de début.");
+      return;
+    }
+
+    if (mode === "create" && formData.dateDebut && formData.dateDebut < todayString) {
+      setError("La date de début ne peut pas être antérieure à aujourd'hui.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -115,6 +135,7 @@ export default function ProjectModal({
           <Input
             label="Date de début"
             type="date"
+            min={mode === "create" ? todayString : undefined}
             value={formData.dateDebut}
             onChange={(e) =>
               setFormData({ ...formData, dateDebut: e.target.value })
@@ -124,6 +145,7 @@ export default function ProjectModal({
           <Input
             label="Date de fin"
             type="date"
+            min={formData.dateDebut || todayString}
             value={formData.dateFin}
             onChange={(e) =>
               setFormData({ ...formData, dateFin: e.target.value })

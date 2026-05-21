@@ -1,7 +1,6 @@
-"use client";
-
 import Image from "next/image";
 import { RegisterForm } from "@/features/auth/components/RegisterForm";
+import { ThemeModeToggle } from "@/components/theme/ThemeModeToggle";
 
 export default function RegisterPage() {
 	return (
@@ -25,9 +24,10 @@ export default function RegisterPage() {
 					<span className="hidden sm:inline text-sm text-slate-500 dark:text-slate-400">
 						Already have an account?
 					</span>
-					<a className="text-sm font-semibold text-primary-700 hover:text-primary-600 transition-colors" href="/auth/login">
+					<a className="text-sm font-semibold text-primary-700 hover:text-primary-600 transition-colors mr-2" href="/auth/login">
 						Sign in
 					</a>
+					<ThemeModeToggle />
 				</div>
 			</header>
 			{/* Main Content */}
