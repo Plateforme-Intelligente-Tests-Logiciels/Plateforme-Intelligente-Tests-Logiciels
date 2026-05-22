@@ -135,7 +135,7 @@ export default function TarifsPage() {
           {plans.map((plan, i) => (
             <div
               key={plan.name}
-              className={`relative rounded-3xl border bg-white/3 backdrop-blur-sm flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl
+              className={`relative rounded-3xl border bg-white/3 backdrop-blur-sm flex flex-col overflow-visible transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl
                 ${i === 1
                   ? "border-primary-500/50 shadow-[0_0_40px_rgba(79,110,247,0.15)]"
                   : "border-white/8 hover:border-white/15"
@@ -143,9 +143,9 @@ export default function TarifsPage() {
             >
               {/* Popular badge */}
               {plan.badge && (
-                <div className={`absolute top-0 right-6 -translate-y-1/2`}>
+                <div className="absolute top-0 right-0 z-10">
                   <span
-                    className={`inline-block px-3 py-1 rounded-full text-xs font-bold text-white bg-linear-to-r ${plan.color} shadow-lg`}
+                    className={`inline-block px-4 py-1.5 text-xs font-bold text-white bg-linear-to-r ${plan.color} shadow-lg rounded-bl-2xl rounded-tr-3xl rounded-tl-none rounded-br-none`}
                   >
                     {plan.badge}
                   </span>

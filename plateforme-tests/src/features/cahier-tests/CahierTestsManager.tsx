@@ -630,13 +630,6 @@ export default function CahierTestsManager({
                   className="hidden"
                   aria-label="Importer un fichier Excel .xlsx pour le cahier de tests"
                 />
-                <button
-                  onClick={handleImportClick}
-                  disabled={!cahier || importing}
-                  className="px-4 py-2 border border-[#3b4754] rounded-md text-white hover:bg-[#283039] font-medium disabled:opacity-50"
-                >
-                  {importing ? "⏳ Import..." : "📤 Import Excel"}
-                </button>
               </>
             )}
 
