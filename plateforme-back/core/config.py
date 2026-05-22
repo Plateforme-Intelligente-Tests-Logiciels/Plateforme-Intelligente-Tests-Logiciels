@@ -37,6 +37,7 @@ MOBILE_RESET_PASSWORD_PATH = os.getenv("MOBILE_RESET_PASSWORD_PATH", "/auth/rese
 SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", SECRET_KEY or "change-me-in-production")
 SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "pilt_backend_session")
 SESSION_SAME_SITE = os.getenv("SESSION_SAME_SITE", "lax")
+SESSION_COOKIE_DOMAIN = os.getenv("SESSION_COOKIE_DOMAIN", "")
 
 # Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")

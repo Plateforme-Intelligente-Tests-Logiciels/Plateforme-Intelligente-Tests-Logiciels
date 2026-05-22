@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: "%s | FlowPilot",
   },
   description:
-    "FlowPilot, plateforme intelligente de gestion, automatisation et analyse de tests logiciels.",
+    "FlowPilot est une plateforme intelligente pour la gestion, l'automatisation et l'analyse des tests logiciels. Ameliorez la qualite et livrez plus vite.",
   applicationName: "FlowPilot",
   manifest: "/site.webmanifest",
   icons: {

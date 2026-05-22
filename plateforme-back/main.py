@@ -7,7 +7,13 @@ from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 import time
 
-from core.config import ENVIRONMENT, SESSION_COOKIE_NAME, SESSION_SAME_SITE, SESSION_SECRET_KEY
+from core.config import (
+    ENVIRONMENT,
+    SESSION_COOKIE_DOMAIN,
+    SESSION_COOKIE_NAME,
+    SESSION_SAME_SITE,
+    SESSION_SECRET_KEY,
+)
 from db.database import engine, get_db, Base, SessionLocal
 
 # Import all models to register them with SQLAlchemy
@@ -124,6 +130,7 @@ app.add_middleware(
     https_only=(ENVIRONMENT == "production"),
     same_site=SESSION_SAME_SITE,
     session_cookie=SESSION_COOKIE_NAME,
+    domain=SESSION_COOKIE_DOMAIN or None,
 )
 
 # Configure CORS
