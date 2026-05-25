@@ -57,7 +57,7 @@ export default function LoginPage() {
                     </div>
                     {/* Social Buttons */}
                     <div className="mt-8 grid grid-cols-2 gap-4">
-                        <a className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/90 dark:bg-surface-dark px-3 py-3 text-sm font-semibold text-slate-900 dark:text-white shadow-md ring-1 ring-inset ring-primary-200 dark:ring-primary-900/60 hover:bg-primary-50/70 dark:hover:bg-[#252b33] focus-visible:ring-2 focus-visible:ring-primary transition-all active:scale-95" href={`${API_URL}/auth/oauth/google/login?intent=login`}>
+                        <a className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/90 dark:bg-surface-dark px-3 py-3 text-sm font-semibold text-slate-900 dark:text-white shadow-md ring-1 ring-inset ring-primary-200 dark:ring-primary-900/60 hover:bg-primary-50/70 dark:hover:bg-[#252b33] focus-visible:ring-2 focus-visible:ring-primary transition-all active:scale-95" href={`/auth/oauth/google/login?intent=login`}>
                             <svg
                                 aria-hidden="true"
                                 className="w-5 h-5"
