@@ -132,7 +132,7 @@ class OAuthService:
             token = await oauth_registry.google.authorize_access_token(request)
         except OAuthError as exc:
             can_fallback_manually = (
-                ENVIRONMENT == "development"
+                ENVIRONMENT == "production"
                 and bool(code)
                 and getattr(exc, "error", "") in {"mismatching_state", "invalid_state"}
             )
@@ -302,7 +302,7 @@ class OAuthService:
         except OAuthError as exc:
             # Allow fallback in development only when code is present and state error occurs
             can_fallback_manually = (
-                ENVIRONMENT == "development"
+                ENVIRONMENT == "production"
                 and bool(code)
                 and getattr(exc, "error", "") in {"mismatching_state", "invalid_state"}
             )
@@ -346,7 +346,7 @@ class OAuthService:
             )
             fallback_any = next((item.get("email") for item in emails if item.get("email")), None)
 
-            if ENVIRONMENT == "development":
+            if ENVIRONMENT == "production":
                 email = primary_verified or fallback_verified or primary_unverified or fallback_any
             else:
                 email = primary_verified or fallback_verified
