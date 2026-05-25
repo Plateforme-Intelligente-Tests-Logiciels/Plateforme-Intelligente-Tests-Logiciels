@@ -81,7 +81,8 @@ async def oauth_login(
         value=oauth_intent,
         max_age=300,
         httponly=True,
-        samesite="lax",
+        samesite="none",
+        secure=True,
     )
     return response
 
