@@ -131,7 +131,6 @@ app.add_middleware(
     https_only=(ENVIRONMENT == "production"),
     same_site=SESSION_SAME_SITE,
     session_cookie=SESSION_COOKIE_NAME,
-    secure=SESSION_COOKIE_SECURE,
     domain=SESSION_COOKIE_DOMAIN or None,
 )
 
