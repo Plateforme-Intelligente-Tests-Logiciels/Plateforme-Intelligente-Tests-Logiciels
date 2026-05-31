@@ -125,24 +125,12 @@ class OAuthService:
 
     async def _fetch_google_profile(self, request: Request) -> dict[str, Any]:
         code = request.query_params.get("code")
-
-        # Prefer Authlib standard flow first. In local dev, if state/session is
-        # unstable, fallback to manual exchange only when code is present.
-        try:
-            token = await oauth_registry.google.authorize_access_token(request)
-        except OAuthError as exc:
-            can_fallback_manually = (
-                ENVIRONMENT == "production"
-                and bool(code)
-                and getattr(exc, "error", "") in {"mismatching_state", "invalid_state"}
+        if not code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing authorization code",
             )
-            if not can_fallback_manually:
-                raise
-
-            logger.warning(
-                "OAuth google state issue in development, fallback to manual token exchange"
-            )
-            token = await self._exchange_google_code_manually(code, request)
+        token = await self._exchange_google_code_manually(code, request)
 
         user_info = token.get("userinfo")
         if not user_info:
