@@ -45,7 +45,7 @@ function OAuthCallbackContent() {
       if (typeof window !== "undefined") {
         window.sessionStorage.removeItem("oauth_intent");
       }
-      setError("Invalid OAuth callback payload");
+      router.replace(ROUTES.LOGIN);
       return;
     }
 
