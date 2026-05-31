@@ -131,6 +131,7 @@ class OAuthService:
                 detail="Missing authorization code",
             )
         token = await self._exchange_google_code_manually(code, request)
+        logger.warning("Google token keys: %s", list(token.keys()))
 
         user_info = token.get("userinfo")
         if not user_info:
