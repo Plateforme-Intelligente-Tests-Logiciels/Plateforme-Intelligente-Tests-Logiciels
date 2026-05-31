@@ -94,6 +94,10 @@ async def oauth_callback(
     oauth_svc: OAuthService = Depends(get_oauth_service),
     auth_svc: AuthService = Depends(get_auth_service),
 ):
+    code = request.query_params.get("code")
+    if not code:
+        base = FRONTEND_BASE_URL.rstrip("/")
+        return RedirectResponse(url=f"{base}/auth/login", status_code=status.HTTP_302_FOUND)
     try:
         oauth_intent = (
             request.query_params.get("intent")
