@@ -136,6 +136,7 @@ class OAuthService:
         user_info = token.get("userinfo")
         if not user_info:
             user_info = await self._fetch_google_userinfo(token)
+            logger.warning("Google userinfo result: %s", user_info)
 
         if not user_info or not user_info.get("email"):
             raise HTTPException(
