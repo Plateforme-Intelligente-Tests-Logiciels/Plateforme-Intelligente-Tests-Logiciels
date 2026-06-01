@@ -37,20 +37,30 @@ jobs:
 
       - name: Deploy on VPS
         uses: appleboy/ssh-action@master
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
+          envs: SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASSWORD,SMTP_FROM,SMTP_USE_TLS
           script: |
             set -e
 
             mkdir -p ~/deploy/app
-            if [ ! -f ~/deploy/backend.env ]; then
-              echo "Missing backend env file at ~/deploy/backend.env"
-              echo "Create it once on the VPS, then rerun the deploy."
-              exit 1
-            fi
+            touch ~/deploy/backend.env
+
+            # Inject SMTP credentials from GitHub Secrets into backend.env
+            for VAR in SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASSWORD SMTP_FROM SMTP_USE_TLS; do
+              sed -i "/^${VAR}=/d" ~/deploy/backend.env
+              echo "${VAR}=${!VAR}" >> ~/deploy/backend.env
+            done
 
             rm -rf ~/deploy/app/* ~/deploy/app.tar.gz
 
