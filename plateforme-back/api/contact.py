@@ -12,7 +12,7 @@ class ContactRequest(BaseModel):
     email: EmailStr
     message: str
 
-@router.post("/")
+@router.post("")
 def send_contact_message(request: ContactRequest):
     try:
         subject = f"Nouveau message de contact de {request.name}"
