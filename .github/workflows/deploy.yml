@@ -57,10 +57,13 @@ jobs:
             touch ~/deploy/backend.env
 
             # Inject SMTP credentials from GitHub Secrets into backend.env
-            for VAR in SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASSWORD SMTP_FROM SMTP_USE_TLS; do
-              sed -i "/^${VAR}=/d" ~/deploy/backend.env
-              echo "${VAR}=${!VAR}" >> ~/deploy/backend.env
-            done
+            sed -i '/^SMTP_/d' ~/deploy/backend.env
+            echo "SMTP_HOST=$SMTP_HOST" >> ~/deploy/backend.env
+            echo "SMTP_PORT=$SMTP_PORT" >> ~/deploy/backend.env
+            echo "SMTP_USER=$SMTP_USER" >> ~/deploy/backend.env
+            echo "SMTP_PASSWORD=$SMTP_PASSWORD" >> ~/deploy/backend.env
+            echo "SMTP_FROM=$SMTP_FROM" >> ~/deploy/backend.env
+            echo "SMTP_USE_TLS=$SMTP_USE_TLS" >> ~/deploy/backend.env
 
             rm -rf ~/deploy/app/* ~/deploy/app.tar.gz
 
