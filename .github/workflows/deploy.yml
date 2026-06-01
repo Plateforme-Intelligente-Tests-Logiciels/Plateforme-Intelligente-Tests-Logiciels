@@ -37,33 +37,25 @@ jobs:
 
       - name: Deploy on VPS
         uses: appleboy/ssh-action@master
-        env:
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_FROM: ${{ secrets.SMTP_FROM }}
-          SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
-          envs: SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASSWORD,SMTP_FROM,SMTP_USE_TLS
           script: |
             set -e
 
             mkdir -p ~/deploy/app
             touch ~/deploy/backend.env
 
-            # Inject SMTP credentials from GitHub Secrets into backend.env
+            # Inject SMTP credentials directly into backend.env
             sed -i '/^SMTP_/d' ~/deploy/backend.env
-            echo "SMTP_HOST=$SMTP_HOST" >> ~/deploy/backend.env
-            echo "SMTP_PORT=$SMTP_PORT" >> ~/deploy/backend.env
-            echo "SMTP_USER=$SMTP_USER" >> ~/deploy/backend.env
-            echo "SMTP_PASSWORD=$SMTP_PASSWORD" >> ~/deploy/backend.env
-            echo "SMTP_FROM=$SMTP_FROM" >> ~/deploy/backend.env
-            echo "SMTP_USE_TLS=$SMTP_USE_TLS" >> ~/deploy/backend.env
+            echo "SMTP_HOST=smtp.gmail.com" >> ~/deploy/backend.env
+            echo "SMTP_PORT=587" >> ~/deploy/backend.env
+            echo "SMTP_USER=contact.pilt1@gmail.com" >> ~/deploy/backend.env
+            echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> ~/deploy/backend.env
+            echo "SMTP_FROM=contact.pilt1@gmail.com" >> ~/deploy/backend.env
+            echo "SMTP_USE_TLS=true" >> ~/deploy/backend.env
 
             rm -rf ~/deploy/app/* ~/deploy/app.tar.gz
 
