@@ -13,6 +13,7 @@ from core.rbac.dependencies import get_current_user_with_role
 from db.database import get_db
 from models.user import Utilisateur
 from schemas.rapport import (
+    AffinerRecommandationsRequest,
     GenererRapportQARequest,
     RapportQAResponse,
     UpdateRapportQARequest,
@@ -94,6 +95,28 @@ async def update_rapport_qa(
         projet_id=projet_id,
         user_id=current_user.id,
         payload=body.model_dump(exclude_none=True),
+    )
+
+
+@router.post(
+    "/cahier/{cahier_id}/affiner-recommandations",
+    response_model=RapportQAResponse,
+    summary="Affiner les recommandations IA avec le feedback du testeur",
+)
+async def affiner_recommandations(
+    projet_id: int,
+    cahier_id: int,
+    body: AffinerRecommandationsRequest,
+    current_user: Annotated[Utilisateur, Depends(get_current_user_with_role)],
+    svc: RapportService = Depends(get_service),
+):
+    _ensure_rapport_allowed_role(current_user)
+    _ensure_testeur_only(current_user)
+    return svc.affiner_recommandations_ia(
+        cahier_id=cahier_id,
+        projet_id=projet_id,
+        user_id=current_user.id,
+        feedback=body.feedback,
     )
 
 

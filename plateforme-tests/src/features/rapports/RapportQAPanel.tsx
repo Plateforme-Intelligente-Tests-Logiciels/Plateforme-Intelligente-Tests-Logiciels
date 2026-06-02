@@ -37,6 +37,7 @@ interface RapportQAPanelProps {
   updating: boolean;
   onGenerate: (mode: "manuelle" | "ai", payload?: GenererRapportQAPayload) => void;
   onUpdate: (payload: UpdateRapportQAPayload) => void | Promise<void>;
+  onRefine: (feedback: string) => Promise<void>;
   onExport: (format: "pdf" | "word") => void;
 }
 
@@ -80,6 +81,7 @@ export default function RapportQAPanel({
   updating,
   onGenerate,
   onUpdate,
+  onRefine,
   onExport,
 }: RapportQAPanelProps) {
   const [showManualForm, setShowManualForm] = React.useState(false);
@@ -92,6 +94,9 @@ export default function RapportQAPanel({
   const [editRecommandations, setEditRecommandations] = React.useState("");
   const [showRecommendationsEditor, setShowRecommendationsEditor] = React.useState(false);
   const [recommendationsDraft, setRecommendationsDraft] = React.useState("");
+  const [showFeedbackInput, setShowFeedbackInput] = React.useState(false);
+  const [feedbackText, setFeedbackText] = React.useState("");
+  const [refining, setRefining] = React.useState(false);
 
   React.useEffect(() => {
     if (!rapport) return;
@@ -519,21 +524,81 @@ export default function RapportQAPanel({
             </div>
 
             <div className="rounded-lg border border-border bg-(--surface-2) p-4 dark:border-[#334155] dark:bg-[#1f2a36]">
-              <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="mb-3 flex items-center justify-between gap-2">
                 <h4 className="font-semibold text-foreground">Actions recommandees</h4>
-                <button
-                  onClick={() => {
-                    if (showRecommendationsEditor) {
-                      setRecommendationsDraft(rapport.recommandations || "");
-                    }
-                    setShowRecommendationsEditor((prev) => !prev);
-                  }}
-                  disabled={readOnly || updating}
-                  className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-(--surface) disabled:opacity-50 dark:border-[#3b4754] dark:text-white dark:hover:bg-[#283039]"
-                >
-                  {showRecommendationsEditor ? "Annuler" : "Modifier"}
-                </button>
+                <div className="flex items-center gap-2">
+                  {!readOnly && (
+                    <button
+                      onClick={() => {
+                        setShowFeedbackInput((prev) => !prev);
+                        setFeedbackText("");
+                        setShowRecommendationsEditor(false);
+                      }}
+                      disabled={refining || updating}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50 dark:border-primary/30"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">auto_fix_high</span>
+                      {showFeedbackInput ? "Annuler" : "Affiner avec IA"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (showRecommendationsEditor) {
+                        setRecommendationsDraft(rapport.recommandations || "");
+                      }
+                      setShowRecommendationsEditor((prev) => !prev);
+                      setShowFeedbackInput(false);
+                    }}
+                    disabled={readOnly || updating}
+                    className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-(--surface) disabled:opacity-50 dark:border-[#3b4754] dark:text-white dark:hover:bg-[#283039]"
+                  >
+                    {showRecommendationsEditor ? "Annuler" : "Modifier"}
+                  </button>
+                </div>
               </div>
+
+              {showFeedbackInput && (
+                <div className="mb-4 rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2 dark:border-primary/20 dark:bg-primary/5">
+                  <p className="text-xs font-medium text-primary">
+                    Donnez votre feedback pour affiner les recommandations IA
+                  </p>
+                  <textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    rows={3}
+                    placeholder="Ex: Mettre l'accent sur les tests de securite, ignorer les tests de performance..."
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-[#334155] dark:bg-[#0f172a]"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!feedbackText.trim()) return;
+                      setRefining(true);
+                      try {
+                        await onRefine(feedbackText.trim());
+                        setShowFeedbackInput(false);
+                        setFeedbackText("");
+                      } finally {
+                        setRefining(false);
+                      }
+                    }}
+                    disabled={refining || !feedbackText.trim()}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {refining ? (
+                      <>
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                        Affinement en cours...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[15px]">send</span>
+                        Envoyer le feedback
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
               {showRecommendationsEditor && (
                 <div className="mb-4 space-y-2">
                   <label htmlFor="rapport-qa-recommendations-draft" className="sr-only">

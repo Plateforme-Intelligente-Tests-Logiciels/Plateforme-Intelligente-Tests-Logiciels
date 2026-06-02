@@ -23,6 +23,10 @@ class UpdateRapportQARequest(BaseModel):
     recommandations: Optional[str] = None
 
 
+class AffinerRecommandationsRequest(BaseModel):
+    feedback: str = Field(..., min_length=1, description="Feedback du testeur pour affiner les recommandations IA")
+
+
 class IndicateurQualiteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

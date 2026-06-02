@@ -24,6 +24,7 @@ import {
   downloadFile,
 } from "./api";
 import {
+  affinerRecommandations,
   exporterRapportQAPdf,
   exporterRapportQAWord,
   genererRapportQA,
@@ -375,6 +376,17 @@ export default function CahierTestsManager({
       throw err;
     } finally {
       setUpdatingRapport(false);
+    }
+  };
+
+  const handleRefineRapport = async (feedback: string) => {
+    if (!cahier) return;
+    try {
+      const updated = await affinerRecommandations(projectId, cahier.id, feedback);
+      setRapport(updated);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Erreur lors du raffinement des recommandations.");
+      throw err;
     }
   };
 
@@ -794,6 +806,7 @@ export default function CahierTestsManager({
           updating={updatingRapport}
           onGenerate={handleGenerateRapport}
           onUpdate={handleUpdateRapport}
+          onRefine={handleRefineRapport}
           onExport={handleExportRapport}
         />
       )}

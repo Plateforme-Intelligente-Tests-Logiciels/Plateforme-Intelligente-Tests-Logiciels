@@ -43,6 +43,18 @@ export const updateRapportQA = async (
   return response.data;
 };
 
+export const affinerRecommandations = async (
+  projectId: number,
+  cahierId: number,
+  feedback: string
+): Promise<RapportQA> => {
+  const response = await axiosInstance.post<RapportQA>(
+    `${getRapportBase(projectId, cahierId)}/affiner-recommandations`,
+    { feedback }
+  );
+  return response.data;
+};
+
 export const exporterRapportQAPdf = async (
   projectId: number,
   cahierId: number

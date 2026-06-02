@@ -549,6 +549,103 @@ class RapportService:
 
         return rapport
 
+    def affiner_recommandations_ia(
+        self,
+        cahier_id: int,
+        projet_id: int,
+        user_id: int,
+        feedback: str,
+    ) -> RapportQA:
+        rapport = self.get_rapport_qa(cahier_id, projet_id)
+        cahier = self._verifier_appartenance(cahier_id, projet_id)
+
+        try:
+            stats = self._compute_rapport_stats(cahier)
+
+            current_recs = rapport.recommandations or ""
+            current_items = list(rapport.recommandations_qualite)
+            current_items_lines = "\n".join(
+                f"- {r.titre} ({r.priorite}): {r.description}"
+                for r in current_items
+            ) or "Aucune"
+
+            refine_prompt = (
+                f"Recommandations actuelles:\n{current_recs}\n\n"
+                f"Actions qualite actuelles:\n{current_items_lines}\n\n"
+                f"Feedback du testeur QA: {feedback}\n\n"
+                f"Metriques:\n"
+                f"Total tests: {stats['total']}\n"
+                f"Tests reussis: {stats['reussi']}/{stats['executes']}\n"
+                f"Tests echoues: {stats['echoue']}\n"
+                f"Tests bloques: {stats['bloque']}\n"
+                f"Taux de reussite: {stats['taux_reussite']}%\n"
+                f"Taux de couverture: {stats['taux_couverture']}%\n\n"
+                "Ameliore les recommandations en integrant le feedback du testeur. "
+                "Retourne le meme format JSON."
+            )
+
+            api_key = self._get_api_key_for_request(user_id)
+            payload = {
+                "model": AI_MODEL,
+                "messages": [
+                    {"role": "system", "content": RAPPORT_QA_SYSTEM_PROMPT},
+                    {"role": "user", "content": refine_prompt},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1200,
+            }
+            clean_api_key = api_key.strip().strip('"').strip("'")
+            headers = {
+                "Authorization": f"Bearer {clean_api_key}",
+                "Content-Type": "application/json",
+            }
+            resp = requests.post(AI_API_URL, json=payload, headers=headers, timeout=120)
+            if not resp.ok:
+                raise ValueError(f"ia_error:{resp.status_code}")
+            content = resp.json()["choices"][0]["message"]["content"]
+            match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group(1))
+            else:
+                start = content.find("{")
+                end = content.rfind("}") + 1
+                parsed = json.loads(content[start:end])
+
+            items = parsed.get("recommandations_qualite")
+            if not isinstance(items, list):
+                alt = parsed.get("recommandations")
+                items = alt if isinstance(alt, list) else []
+            normalized_items = []
+            for item in items[:6]:
+                normalized_items.append({
+                    "titre": str(item.get("titre") or "Action qualite"),
+                    "description": str(item.get("description") or ""),
+                    "categorie": str(item.get("categorie") or "fiabilite"),
+                    "priorite": str(item.get("priorite") or "moyenne"),
+                    "impact": float(item.get("impact") or 0.5),
+                })
+
+            summary_text = parsed.get("recommandations")
+            if not isinstance(summary_text, str):
+                summary_text = parsed.get("analyse") if isinstance(parsed.get("analyse"), str) else ""
+
+            rapport.recommandations = str(summary_text or "").strip()
+            rapport.dateGeneration = datetime.utcnow()
+            self._sync_recommandations_qualite(rapport, normalized_items)
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"[affiner_recommandations_ia] fallback manuel: {e}")
+            # Fallback: append feedback as manual note to existing recommendations
+            existing = rapport.recommandations or ""
+            rapport.recommandations = f"{existing}\n\n[Feedback testeur]: {feedback}".strip()
+            rapport.dateGeneration = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(rapport)
+        return rapport
+
     def sync_rapport_with_cahier(self, cahier_id: int, projet_id: int) -> Optional[RapportQA]:
         """
         Synchronise automatiquement le rapport QA avec l'etat courant du cahier.
