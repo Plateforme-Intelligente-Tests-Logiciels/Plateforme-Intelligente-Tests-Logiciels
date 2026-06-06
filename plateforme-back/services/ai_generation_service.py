@@ -448,7 +448,7 @@ class AIGenerationService:
         comme « approved ».
         """
         from datetime import timedelta
-        from models.scrum import Epic, UserStory, Sprint
+        from models.scrum import Epic, UserStory, Sprint, Module
         from repositories.projet_repository import ProjetRepository
 
         gen = self.repo.get_detail(generation_id)
@@ -534,6 +534,14 @@ class AIGenerationService:
             sprints_created += 1
 
         # ── Epics ─────────────────────────────────────────────────────────
+        default_module = (
+            self.db.query(Module).filter(Module.projet_id == projet_id).first()
+        )
+        if default_module is None:
+            default_module = Module(nom="Général", projet_id=projet_id, ordre=0)
+            self.db.add(default_module)
+            self.db.flush()
+
         epic_idx = 0
         for item in (i for i in active if i.type == "epic"):
             numero    = projet_repo.next_issue_number(projet_id)
@@ -544,7 +552,7 @@ class AIGenerationService:
                 description=item.description,
                 priorite=epic_idx,
                 statut="to_do",
-                projet_id=projet_id,
+                module_id=default_module.id,
                 productOwnerId=user_id,
             )
             self.db.add(e)
