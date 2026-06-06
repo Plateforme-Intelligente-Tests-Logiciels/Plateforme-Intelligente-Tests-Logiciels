@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.exc import OperationalError
 
 load_dotenv()
 
@@ -18,6 +19,8 @@ engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     pool_recycle=1800,
+    pool_size=10,
+    max_overflow=20,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -28,5 +31,11 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except OperationalError:
+        db.rollback()
+        raise
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
