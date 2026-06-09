@@ -3,6 +3,7 @@ Service métier pour la gestion des projets
 """
 import json
 import re
+from datetime import date
 from typing import List
 import requests
 from fastapi import HTTPException, status
@@ -124,7 +125,7 @@ class ProjetService:
             "nom": parsed.get("nom") or None,
             "description": parsed.get("description") or None,
             "objectif": parsed.get("objectif") or None,
-            "dateDebut": parsed.get("dateDebut") or None,
+            "dateDebut": date.today().isoformat(),
             "dateFin": parsed.get("dateFin") or None,
         }
 
