@@ -126,7 +126,7 @@ class ProjetService:
             "description": parsed.get("description") or None,
             "objectif": parsed.get("objectif") or None,
             "dateDebut": date.today().isoformat(),
-            "dateFin": parsed.get("dateFin") or None,
+            "dateFin": None,
         }
 
     # ── Création ────────────────────────────────────────────────────────────
