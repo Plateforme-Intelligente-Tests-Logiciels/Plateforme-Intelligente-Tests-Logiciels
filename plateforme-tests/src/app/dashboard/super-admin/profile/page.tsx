@@ -6,7 +6,6 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { ROUTES } from "@/lib/constants";
 import { useProfile } from "@/features/profile/hooks";
-import { APIKeyManagement } from "@/features/profile/APIKeyManagement";
 
 export default function ProfilePage() {
   const { profile, isLoading, error, updateProfile, changePassword } = useProfile();
@@ -293,9 +292,6 @@ export default function ProfilePage() {
               </form>
             </div>
 
-            <div className="bg-surface-dark border border-[#3b4754] rounded-xl p-6">
-              <APIKeyManagement />
-            </div>
           </div>
         </div>
         )}

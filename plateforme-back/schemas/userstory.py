@@ -93,6 +93,10 @@ class AssignerAssigneeRequest(BaseModel):
     assignee_id: int = Field(..., description="ID du responsable (doit être membre du projet)")
 
 
+class AssignerScrumMasterRequest(BaseModel):
+    scrum_master_id: int = Field(..., description="ID du scrum master à assigner")
+
+
 class ValiderUserStoryRequest(BaseModel):
     commentaire: Optional[str] = Field(None, description="Commentaire de validation")
 
@@ -109,6 +113,7 @@ class AssigneeInfo(BaseModel):
 
 DeveloperInfo = AssigneeInfo
 TesterInfo = AssigneeInfo
+ScrumMasterInfo = AssigneeInfo
 
 
 class UserStoryResponse(BaseModel):
@@ -129,9 +134,11 @@ class UserStoryResponse(BaseModel):
     developerId: Optional[int] = None
     testerId: Optional[int] = None
     assigneeId: Optional[int] = None
+    scrumMasterId: Optional[int] = None
     developer: Optional[DeveloperInfo] = None
     tester: Optional[TesterInfo] = None
     assignee: Optional[AssigneeInfo] = None
+    scrum_master: Optional[ScrumMasterInfo] = None
     bug_titre_correction: Optional[str] = None
     bug_nom_tache: Optional[str] = None
     bug_ticket: Optional[str] = None

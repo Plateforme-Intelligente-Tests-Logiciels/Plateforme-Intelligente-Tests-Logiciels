@@ -42,8 +42,13 @@ export const getUserProjects = async (userId: number): Promise<Project[]> => {
 /**
  * Get a single project by ID
  */
-export const getProjectById = async (projectId: number): Promise<Project> => {
-  const response = await axiosInstance.get<Project>(`${BASE_URL}/${projectId}`);
+export const getProjectById = async (
+  projectId: number,
+  suppressErrorLog?: boolean
+): Promise<Project> => {
+  const response = await axiosInstance.get<Project>(`${BASE_URL}/${projectId}`, {
+    suppressErrorLog,
+  });
   return response.data;
 };
 

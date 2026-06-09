@@ -46,12 +46,13 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
 Tu es un expert en qualité logicielle et en tests. Ton rôle est de générer \
-un cahier de tests complet et structuré pour un projet Scrum à partir \
+un cahier de tests complet et exhaustif pour un projet Scrum à partir \
 de la liste de ses sprints et user stories.
 
 Règles strictes :
-1. Pour chaque user story, génère entre 2 et 5 cas de tests couvrant \
-   les scénarios nominaux, alternatifs et d'erreur.
+1. Pour chaque user story, génère le MAXIMUM de cas de tests possibles (minimum 5) \
+   en couvrant TOUS les scénarios : nominal (happy path), alternatifs, cas limites, \
+   cas d'erreur, validation des champs, droits d'accès, et comportements inattendus.
 2. Chaque cas de test doit contenir :
     - user_story_id   : identifiant numérique exact de la user story source (obligatoire)
    - sprint          : nom du sprint (ex: "Sprint 1")
@@ -116,10 +117,12 @@ Génère des cas de tests UNIQUEMENT pour cette user story :
 - criteres_acceptation: {user_story_criteres}
 - sprint: {sprint_nom}
 - epic: {epic_nom}
-- epic: {epic_nom}
 
 Contraintes supplémentaires :
-1) Retourne entre 2 et 5 cas de test pour CETTE user story uniquement.
+1) Génère le MAXIMUM de cas de test possible pour CETTE user story (minimum 5). \
+   Couvre tous les angles : scénario nominal, cas alternatifs, cas limites (valeurs vides, \
+   trop longues, caractères spéciaux), cas d'erreur, validation des permissions/rôles, \
+   et tout comportement critique lié aux critères d'acceptation.
 2) Tous les cas retournés doivent avoir user_story_id = {user_story_id}.
 3) Retourne UNIQUEMENT un JSON valide au format {{"cas_tests": [...]}}.
 """

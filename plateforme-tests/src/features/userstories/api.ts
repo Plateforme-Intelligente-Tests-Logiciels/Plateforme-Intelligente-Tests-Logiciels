@@ -7,6 +7,7 @@ import {
   AssignerDeveloppeurPayload,
   AssignerTesteurPayload,
   AssignerAssigneePayload,
+  AssignerScrumMasterPayload,
   ValiderUserStoryPayload,
   StatutUS,
 } from "@/types";
@@ -32,12 +33,13 @@ export const createUserStory = async (
 export const getUserStories = async (
   projectId: number,
   epicId: number,
-  statut?: StatutUS
+  statut?: StatutUS,
+  suppressErrorLog?: boolean
 ): Promise<UserStory[]> => {
   const params = statut ? { statut } : {};
   const response = await axiosInstance.get<UserStory[]>(
     `/projets/${projectId}/epics/${epicId}/userstories`,
-    { params }
+    { params, suppressErrorLog }
   );
   return response.data;
 };
@@ -142,6 +144,22 @@ export const assignTester = async (
 ): Promise<UserStory> => {
   const response = await axiosInstance.patch<UserStory>(
     `/projets/${projectId}/epics/${epicId}/userstories/${userStoryId}/assigner-testeur`,
+    payload
+  );
+  return response.data;
+};
+
+/**
+ * Assigner un scrum master à une user story
+ */
+export const assignScrumMaster = async (
+  projectId: number,
+  epicId: number,
+  userStoryId: number,
+  payload: AssignerScrumMasterPayload
+): Promise<UserStory> => {
+  const response = await axiosInstance.patch<UserStory>(
+    `/projets/${projectId}/epics/${epicId}/userstories/${userStoryId}/assigner-scrum-master`,
     payload
   );
   return response.data;

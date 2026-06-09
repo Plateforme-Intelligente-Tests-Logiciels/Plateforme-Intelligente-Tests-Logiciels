@@ -81,7 +81,20 @@ export default function UsersPage() {
     setIsUserModalOpen(true);
   };
 
-  const handleDeleteUser = async (userId: number) => {
+  const handleDeleteUser = async (user: User) => {
+    // Prevent deletion of active users: require deactivation first
+    if (user.actif) {
+      await confirmDialog({
+        title: "Désactivation requise",
+        description: `L'utilisateur ${user.nom} est actuellement actif. Veuillez le désactiver d'abord puis réessayer la suppression.`,
+        confirmText: "Compris",
+        cancelText: "Annuler",
+        confirmVariant: "default",
+      });
+
+      return;
+    }
+
     const confirmed = await confirmDialog({
       title: "Supprimer l'utilisateur",
       description:
@@ -96,7 +109,7 @@ export default function UsersPage() {
     }
 
     try {
-      await deleteUserApi(userId);
+      await deleteUserApi(user.id);
       await loadData();
       alert("Utilisateur supprimé avec succès");
     } catch (error) {
@@ -327,7 +340,7 @@ export default function UsersPage() {
                             </button>
                             {isSuperAdmin && (
                               <button
-                                onClick={() => handleDeleteUser(user.id)}
+                                onClick={() => handleDeleteUser(user)}
                                 className="text-[#9dabb9] hover:text-red-400 transition-colors"
                                 title="Supprimer définitivement"
                               >
@@ -428,7 +441,7 @@ export default function UsersPage() {
                             </button>
                             {isSuperAdmin && (
                               <button
-                                onClick={() => handleDeleteUser(user.id)}
+                                onClick={() => handleDeleteUser(user)}
                                 className="text-[#9dabb9] hover:text-red-400 transition-colors"
                                 title="Supprimer définitivement"
                               >

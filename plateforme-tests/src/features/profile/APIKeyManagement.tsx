@@ -126,10 +126,10 @@ export function APIKeyManagement() {
   const quotaPercentage = apiKeyQuota?.quota_percentage ?? 0;
   const quotaColor =
     quotaPercentage >= 100
-      ? "bg-gradient-to-r from-red-500 to-rose-600"
+      ? "bg-linear-to-r from-red-500 to-rose-600"
       : quotaPercentage >= 80
-      ? "bg-gradient-to-r from-amber-500 to-yellow-500"
-      : "bg-gradient-to-r from-emerald-500 to-teal-500";
+      ? "bg-linear-to-r from-amber-500 to-yellow-500"
+      : "bg-linear-to-r from-emerald-500 to-teal-500";
 
   return (
     <div className="space-y-6">
@@ -200,7 +200,7 @@ export function APIKeyManagement() {
       {/* Current API Key Status Card */}
       <div className={`p-5 rounded-2xl border transition-all duration-300 ${
         apiKeyStatus?.use_custom_api_key
-          ? "bg-gradient-to-br from-indigo-50/50 via-blue-50/30 to-white dark:from-indigo-950/10 dark:via-blue-950/5 dark:to-[#1c2127]/20 border-blue-200/60 dark:border-blue-900/40 shadow-sm"
+          ? "bg-linear-to-br from-indigo-50/50 via-blue-50/30 to-white dark:from-indigo-950/10 dark:via-blue-950/5 dark:to-surface-dark/20 border-blue-200/60 dark:border-blue-900/40 shadow-sm"
           : "bg-slate-50/80 dark:bg-[#151b22] border-slate-200 dark:border-slate-800"
       }`}>
         <div className="flex items-center justify-between">
@@ -358,7 +358,7 @@ export function APIKeyManagement() {
       ) : (
         <>
           {/* Masked API Key Display Card */}
-          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2127]/50 flex items-center justify-between shadow-sm">
+          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark/50 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                 <span className="material-symbols-outlined text-[20px]">vpn_key</span>
@@ -475,8 +475,8 @@ export function APIKeyManagement() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
-          <div className="bg-white dark:bg-[#1c2127] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-sm w-full mx-4 p-6 overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-500 to-rose-600"></div>
+          <div className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-sm w-full mx-4 p-6 overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-red-500 to-rose-600"></div>
             <div className="flex items-start gap-4 mt-2">
               <div className="h-11 w-11 rounded-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[24px]">warning</span>

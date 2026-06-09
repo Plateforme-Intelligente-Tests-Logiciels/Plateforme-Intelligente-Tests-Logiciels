@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING, Any
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
+from schemas.user import RoleSimple
+
 if TYPE_CHECKING:
     from schemas.attachment import AttachmentResponse
 
@@ -78,6 +80,7 @@ class MembreSimple(BaseModel):
     nom: str
     email: str
     actif: bool = True
+    role: Optional[RoleSimple] = None
 
 
 class ProjetResponse(BaseModel):

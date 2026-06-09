@@ -97,12 +97,14 @@ class UserStory(Base):
     developerId = Column(Integer, ForeignKey("utilisateur.id"))
     testerId = Column(Integer, ForeignKey("utilisateur.id"), nullable=True)
     assigneeId = Column(Integer, ForeignKey("utilisateur.id"), nullable=True)  # Responsable de la US
+    scrumMasterId = Column(Integer, ForeignKey("utilisateur.id"), nullable=True)
 
     # Relations
     epic = relationship("Epic", back_populates="userstories")
     developer = relationship("Utilisateur", back_populates="userstories", foreign_keys=[developerId])
     tester = relationship("Utilisateur", back_populates="userstories_tester", foreign_keys=[testerId])
     assignee = relationship("Utilisateur", back_populates="userstories_assignee", foreign_keys=[assigneeId])
+    scrum_master = relationship("Utilisateur", back_populates="userstories_scrum_master", foreign_keys=[scrumMasterId])
     sprints = relationship("Sprint", secondary=sprint_userstory, back_populates="userstories")
     cahier_tests = relationship("CahierDeTests", back_populates="userstory", uselist=False, cascade="all, delete-orphan")
     cas_tests = relationship("CasTest", back_populates="user_story")

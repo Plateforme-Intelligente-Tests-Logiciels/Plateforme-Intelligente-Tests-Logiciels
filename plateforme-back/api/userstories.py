@@ -18,6 +18,7 @@ from schemas.userstory import (
     AssignerDeveloppeurRequest,
     AssignerTesteurRequest,
     AssignerAssigneeRequest,
+    AssignerScrumMasterRequest,
     UserStoryResponse,
 )
 from services.userstory_service import UserStoryService
@@ -166,6 +167,20 @@ async def assigner_testeur(
 ):
     """Assigner un testeur QA à une user story — Scrum Master uniquement."""
     return svc.assigner_testeur(projet_id, epic_id, us_id, data, current_user.id)
+
+
+@router.patch("/{us_id}/assigner-scrum-master", response_model=UserStoryResponse)
+@require_role(ROLE_SCRUM_MASTER)
+async def assigner_scrum_master(
+    projet_id: int,
+    epic_id: int,
+    us_id: int,
+    data: AssignerScrumMasterRequest,
+    current_user: Annotated[Utilisateur, Depends(get_current_user_with_role)],
+    svc: UserStoryService = Depends(get_us_service),
+):
+    """Assigner un scrum master à une user story — Scrum Master uniquement."""
+    return svc.assigner_scrum_master(projet_id, epic_id, us_id, data, current_user.id)
 
 # ─── Assigner / retirer assignee ─────────────────────────────────────────────────────────────────
 

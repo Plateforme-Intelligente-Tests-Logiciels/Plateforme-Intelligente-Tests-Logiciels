@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -17,11 +17,9 @@ import {
   changeUserStoryStatus,
   assignDeveloper,
   assignTester,
-  assignAssignee,
-  removeAssignee,
 } from "@/features/userstories/api";
 import { getProjectById } from "@/features/projects/api";
-import { Project, Epic, UserStory, MemberSimple, PrioriteUS } from "@/types";
+import { Project, Epic, UserStory, UserStorySummary, MemberSimple, PrioriteUS, StatutUS } from "@/types";
 
 export default function UserStoriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -49,9 +47,10 @@ export default function UserStoriesPage() {
   const [editPriorite, setEditPriorite] = useState<PrioriteUS>("must_have");
   const [editCriteresAcceptation, setEditCriteresAcceptation] = useState("");
   const [editReference, setEditReference] = useState("");
+  const projectLoadVersion = useRef(0);
+  const [epicsReady, setEpicsReady] = useState(false);
   
   const [projectMembers, setProjectMembers] = useState<MemberSimple[]>([]);
-  const [assigneeLoading, setAssigneeLoading] = useState<number | null>(null);
   const [developerLoading, setDeveloperLoading] = useState<number | null>(null);
   const [testerLoading, setTesterLoading] = useState<number | null>(null);
 
@@ -68,54 +67,87 @@ export default function UserStoriesPage() {
     priorite: "",
   });
   const selectedProjectData = projects.find((project) => project.id === selectedProject) ?? null;
+  const getProjectMembersByRole = (roleCode: string) =>
+    projectMembers.filter(
+      (member) => member.actif && member.role?.code === roleCode
+    );
+  const developerMembers = getProjectMembersByRole("DEVELOPPEUR");
+  const testerMembers = getProjectMembersByRole("TESTEUR_QA");
 
   useEffect(() => {
     loadProjects();
   }, []);
 
   useEffect(() => {
-    if (selectedProject) {
-      // Reset dependent selectors to avoid requests with stale IDs
+    if (!selectedProject) {
+      setEpicsReady(false);
+      return;
+    }
+
+    const loadVersion = ++projectLoadVersion.current;
+
+    const loadProjectContext = async () => {
+      setIsLoading(true);
+      setError(null);
       setSelectedEpic(null);
       setEpics([]);
       setAllEpics([]);
       setUserStories([]);
+      setEpicsReady(false);
 
-      loadEpics(selectedProject);
-      loadProjectMembers(selectedProject);
-    }
+      try {
+        const [epicsData, project] = await Promise.all([
+          getEpics(selectedProject, undefined, true),
+          getProjectById(selectedProject),
+        ]);
+
+        if (projectLoadVersion.current !== loadVersion) {
+          return;
+        }
+
+        setAllEpics(epicsData);
+        setEpics(epicsData);
+        setProjectMembers(project.membres || []);
+        setEpicsReady(true);
+      } catch (error: any) {
+        if (projectLoadVersion.current !== loadVersion) {
+          return;
+        }
+
+        console.error("Erreur chargement contexte projet:", error);
+        setError(error.response?.data?.detail || "Impossible de charger les données du projet");
+        setProjectMembers([]);
+        setEpics([]);
+        setAllEpics([]);
+        setUserStories([]);
+      } finally {
+        if (projectLoadVersion.current === loadVersion) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadProjectContext();
   }, [selectedProject]);
 
   useEffect(() => {
-    if (selectedProject) {
+    if (selectedProject && epicsReady) {
       loadUserStories(selectedProject, selectedEpic);
     }
-  }, [selectedProject, selectedEpic, filters]);
-
-  const loadProjectMembers = async (projectId: number) => {
-    try {
-      const project = await getProjectById(projectId);
-      setProjectMembers(project.membres || []);
-    } catch (error: any) {
-      console.error("Erreur chargement membres du projet:", error);
-      setProjectMembers([]);
-    }
-  };
+    // selectedProject intentionally omitted: project changes are handled by the effect above
+    // which resets epicsReady to false then true, triggering this effect at the right time
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEpic, filters, epicsReady]);
 
   const loadProjects = async () => {
     setIsLoading(true);
     try {
       const projectsData = await getMyProjectsAsMember();
-      console.log("Projets chargés:", projectsData); // Debug
       setProjects(projectsData);
       if (projectsData.length > 0) {
         setSelectedProject(projectsData[0].id);
-      } else {
-        console.warn("Aucun projet trouvé pour cet utilisateur");
       }
     } catch (error: any) {
-      console.error("Erreur chargement projets:", error);
-      console.error("Détails erreur:", error.response?.data);
       setError("Impossible de charger les projets");
     } finally {
       setIsLoading(false);
@@ -124,58 +156,89 @@ export default function UserStoriesPage() {
 
   const loadEpics = async (projectId: number) => {
     try {
-      const epicsData = await getEpics(projectId);
+      const epicsData = await getEpics(projectId, undefined, true);
       setAllEpics(epicsData);
       setEpics(epicsData);
       setSelectedEpic(null);
+      return epicsData;
     } catch (error: any) {
       console.error("Erreur chargement epics:", error);
       setEpics([]);
       setAllEpics([]);
       setSelectedEpic(null);
       setUserStories([]);
+      return [];
+    }
+  };
+
+  const summaryToUserStory = (summary: UserStorySummary, epicId: number): UserStory => ({
+    id: summary.id,
+    reference: summary.reference,
+    titre: summary.titre,
+    statut: (summary.statut || "to_do") as StatutUS,
+    priorite: (summary.priorite || "must_have") as PrioriteUS,
+    points: summary.points,
+    duree_estimee: summary.duree_estimee,
+    epic_id: summary.epic_id ?? epicId,
+    developer: summary.developpeur
+      ? { id: summary.developpeur.id, nom: `${summary.developpeur.nom} ${summary.developpeur.prenom || ""}`.trim(), email: summary.developpeur.email }
+      : undefined,
+  });
+
+  const loadUserStoriesForEpic = async (
+    projectId: number,
+    epic: Epic,
+    statut?: StatutUS
+  ): Promise<UserStory[]> => {
+    try {
+      return await getUserStories(projectId, epic.id, statut, true);
+    } catch (err: any) {
+      if (err?.response?.status === 404 && epic.userstories?.length) {
+        return epic.userstories
+          .filter((us) => !statut || us.statut === statut)
+          .map((us) => summaryToUserStory(us, epic.id));
+      }
+      return [];
     }
   };
 
   const loadUserStories = async (
     projectId: number,
-    epicId: number | null
+    epicId: number | null,
+    epicsData: Epic[] = allEpics
   ) => {
     setIsLoading(true);
     setError(null);
     try {
-      const statut = filters.statut as any;
+      const statut = filters.statut as StatutUS | undefined;
       let usData: UserStory[] = [];
 
       if (epicId) {
-        usData = await getUserStories(projectId, epicId, statut);
+        const epic = epicsData.find((e) => e.id === epicId);
+        if (epic) {
+          usData = await loadUserStoriesForEpic(projectId, epic, statut || undefined);
+        } else {
+          usData = await getUserStories(projectId, epicId, statut || undefined, true);
+        }
       } else {
-        const epicsData = allEpics.length > 0 ? allEpics : await getEpics(projectId);
+        if (epicsData.length === 0) {
+          setUserStories([]);
+          return;
+        }
         const results = await Promise.all(
-          epicsData.map((epic) =>
-            getUserStories(projectId, epic.id, statut).catch(() => [])
-          )
+          epicsData.map((epic) => loadUserStoriesForEpic(projectId, epic, statut || undefined))
         );
         usData = results.flat();
       }
 
-      let filteredData = usData;
-      
-      // Filter by priority if selected
       if (filters.priorite) {
-        filteredData = filteredData.filter(us => us.priorite === filters.priorite);
+        usData = usData.filter((us) => us.priorite === filters.priorite);
       }
-      
-      setUserStories(filteredData);
+
+      setUserStories(usData);
     } catch (error: any) {
-      console.error("Erreur chargement user stories:", error);
-      // During fast selector changes, API can briefly answer 404 for stale combinations.
-      if (error?.response?.status === 404) {
-        setUserStories([]);
-      } else {
-        setError("Impossible de charger les user stories");
-        setUserStories([]);
-      }
+      setError("Impossible de charger les user stories");
+      setUserStories([]);
     } finally {
       setIsLoading(false);
     }
@@ -183,7 +246,8 @@ export default function UserStoriesPage() {
 
   const refreshUserStories = async () => {
     if (!selectedProject) return;
-    await loadUserStories(selectedProject, selectedEpic);
+    const epicsData = await loadEpics(selectedProject);
+    await loadUserStories(selectedProject, selectedEpic, epicsData);
   };
 
   const handleChangeStatus = async (
@@ -205,36 +269,6 @@ export default function UserStoriesPage() {
     }
   };
 
-  const handleAssignAssignee = async (usId: number, memberId: number, epicId?: number) => {
-    if (!selectedProject) return;
-    const resolvedEpicId = epicId ?? selectedEpic;
-    if (!resolvedEpicId) return;
-    setAssigneeLoading(usId);
-    try {
-      await assignAssignee(selectedProject, resolvedEpicId, usId, { assignee_id: memberId });
-      await refreshUserStories();
-    } catch (error: any) {
-      alert("Erreur lors de l'assignation: " + (error.response?.data?.detail || error.message));
-    } finally {
-      setAssigneeLoading(null);
-    }
-  };
-
-  const handleRemoveAssignee = async (usId: number, epicId?: number) => {
-    if (!selectedProject) return;
-    const resolvedEpicId = epicId ?? selectedEpic;
-    if (!resolvedEpicId) return;
-    setAssigneeLoading(usId);
-    try {
-      await removeAssignee(selectedProject, resolvedEpicId, usId);
-      await refreshUserStories();
-    } catch (error: any) {
-      alert("Erreur lors du retrait de l'assignee: " + (error.response?.data?.detail || error.message));
-    } finally {
-      setAssigneeLoading(null);
-    }
-  };
-
   const handleAssignDeveloper = async (usId: number, memberId: number, epicId?: number) => {
     if (!selectedProject) return;
     const resolvedEpicId = epicId ?? selectedEpic;
@@ -249,7 +283,7 @@ export default function UserStoriesPage() {
       setDeveloperLoading(null);
     }
   };
-
+  
   const handleAssignTester = async (usId: number, memberId: number, epicId?: number) => {
     if (!selectedProject) return;
     const resolvedEpicId = epicId ?? selectedEpic;
@@ -452,7 +486,7 @@ export default function UserStoriesPage() {
           subtitle="Décomposition des epics et affectation des tâches"
           actions={
             <Link
-              href={`${ROUTES.SCRUM_MASTER}/user-stories/new`}
+              href={`${ROUTES.SCRUM_MASTER}/user-stories/new${selectedProject ? `?project=${selectedProject}${selectedEpic ? `&epic=${selectedEpic}` : ""}` : ""}`}
               className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-bold rounded-lg transition-colors"
             >
               <span className="material-symbols-outlined text-[20px]">add</span>
@@ -463,91 +497,97 @@ export default function UserStoriesPage() {
       }
     >
       <div className="max-w-350 mx-auto flex flex-col gap-6">
-        {/* Selectors */}
-        <div className="flex flex-col gap-4">
-          {/* Project Selector */}
-          {projects.length > 0 ? (
-            <ProjectSelectorCard
-              projects={projects.map((project) => ({ id: project.id, nom: project.nom }))}
-              selectedProjectId={selectedProject}
-              selectedProjectName={selectedProjectData?.nom ?? null}
-              onSelectProject={(projectId) => {
-          
-                setSelectedEpic(null);
-                setUserStories([]);
-                setSelectedProject(projectId);
-              }}
-              badgeText="Gestion des user stories"
-              title="Projet"
-              description="Sélectionnez un projet pour gérer ses modules, epics et user stories."
-              placeholder="-- Sélectionnez un projet --"
-            />
-          ) : !isLoading && (
-            <div className="bg-surface-dark border border-[#3b4754] rounded-xl p-4">
-              <label className="text-[#9dabb9] text-sm font-bold mb-2 block">Projet</label>
-              <p className="text-red-400 text-sm">Aucun projet disponible. Vous devez être Product Owner d'un projet ou membre d'un projet.</p>
-            </div>
-          )}
+        {/* Project Selector */}
+        {projects.length > 0 ? (
+          <ProjectSelectorCard
+            projects={projects.map((project) => ({ id: project.id, nom: project.nom }))}
+            selectedProjectId={selectedProject}
+            selectedProjectName={selectedProjectData?.nom ?? null}
+            onSelectProject={(projectId) => {
+              setSelectedEpic(null);
+              setFilters({ statut: "", priorite: "" });
+              setUserStories([]);
+              setSelectedProject(projectId);
+            }}
+            badgeText="Gestion des user stories"
+            title="Projet"
+            description="Sélectionnez un projet pour gérer ses user stories."
+            placeholder="-- Sélectionnez un projet --"
+          />
+        ) : !isLoading && (
+          <div className="bg-surface-dark border border-[#3b4754] rounded-xl p-4">
+            <p className="text-red-400 text-sm">Aucun projet disponible. Vous devez être membre d'un projet.</p>
+          </div>
+        )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Epic Selector */}
-            {epics.length > 0 && (
-              <div className="bg-surface-dark border border-[#3b4754] rounded-xl p-4">
-                <label className="text-[#9dabb9] text-sm font-bold mb-2 block">Epic</label>
+        {/* Filters Bar */}
+        {selectedProject && (
+          <div className="bg-surface-dark border border-[#3b4754] rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[18px]">filter_list</span>
+                <h3 className="text-white text-sm font-bold">Filtres</h3>
+              </div>
+              {(selectedEpic || filters.statut || filters.priorite) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedEpic(null);
+                    setFilters({ statut: "", priorite: "" });
+                  }}
+                  className="flex items-center gap-1 text-xs text-[#9dabb9] hover:text-white transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                  Réinitialiser
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[#9dabb9] text-xs font-bold mb-1.5 block">Epic</label>
                 <select
                   value={selectedEpic || ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setSelectedEpic(value ? Number(value) : null);
-                  }}
-                  className="w-full bg-[#283039] border border-[#3b4754] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                  onChange={(e) => setSelectedEpic(e.target.value ? Number(e.target.value) : null)}
+                  disabled={epics.length === 0}
+                  className="w-full bg-[#283039] border border-[#3b4754] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary disabled:opacity-50"
                 >
                   <option value="">Tous les epics</option>
                   {epics.map((epic) => (
-                    <option key={epic.id} value={epic.id}>
-                      {epic.titre}
-                    </option>
+                    <option key={epic.id} value={epic.id}>{epic.titre}</option>
                   ))}
                 </select>
               </div>
-            )}
-
-            {/* Filters */}
-            <div className="bg-surface-dark border border-[#3b4754] rounded-xl p-4">
-              <h3 className="text-white text-sm font-bold mb-3">Filtres</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[#9dabb9] text-xs font-bold mb-1 block">Statut</label>
-                  <select
-                    value={filters.statut}
-                    onChange={(e) => setFilters({ ...filters, statut: e.target.value })}
-                    className="w-full bg-[#283039] border border-[#3b4754] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Tous</option>
-                    <option value="to_do">À faire</option>
-                    <option value="in_progress">En cours</option>
-                    <option value="ready_for_test">Pret pour test</option>
-                    <option value="done">Terminées</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[#9dabb9] text-xs font-bold mb-1 block">Priorité</label>
-                  <select
-                    value={filters.priorite}
-                    onChange={(e) => setFilters({ ...filters, priorite: e.target.value })}
-                    className="w-full bg-[#283039] border border-[#3b4754] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Toutes</option>
-                    <option value="must_have">Must Have</option>
-                    <option value="should_have">Should Have</option>
-                    <option value="could_have">Could Have</option>
-                    <option value="wont_have">Won't Have</option>
-                  </select>
-                </div>
+              <div>
+                <label className="text-[#9dabb9] text-xs font-bold mb-1.5 block">Statut</label>
+                <select
+                  value={filters.statut}
+                  onChange={(e) => setFilters({ ...filters, statut: e.target.value })}
+                  className="w-full bg-[#283039] border border-[#3b4754] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
+                >
+                  <option value="">Tous les statuts</option>
+                  <option value="to_do">À faire</option>
+                  <option value="in_progress">En cours</option>
+                  <option value="ready_for_test">Prêt pour test</option>
+                  <option value="done">Terminée</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[#9dabb9] text-xs font-bold mb-1.5 block">Priorité</label>
+                <select
+                  value={filters.priorite}
+                  onChange={(e) => setFilters({ ...filters, priorite: e.target.value })}
+                  className="w-full bg-[#283039] border border-[#3b4754] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
+                >
+                  <option value="">Toutes les priorités</option>
+                  <option value="must_have">Must Have</option>
+                  <option value="should_have">Should Have</option>
+                  <option value="could_have">Could Have</option>
+                  <option value="wont_have">Won't Have</option>
+                </select>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -576,7 +616,7 @@ export default function UserStoriesPage() {
               Aucune user story ne correspond aux filtres ou à la sélection actuelle.
             </p>
             <Link
-              href={`${ROUTES.SCRUM_MASTER}/user-stories/new${selectedProject && selectedEpic ? `?project=${selectedProject}&epic=${selectedEpic}` : ''}`}
+              href={`${ROUTES.SCRUM_MASTER}/user-stories/new${selectedProject ? `?project=${selectedProject}${selectedEpic ? `&epic=${selectedEpic}` : ""}` : ""}`}
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-bold rounded-lg transition-colors shadow-lg shadow-primary/20"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
@@ -590,7 +630,7 @@ export default function UserStoriesPage() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-white text-xl font-bold">User Stories ({userStories.length})</h2>
               <Link
-                 href={`${ROUTES.SCRUM_MASTER}/user-stories/new${selectedProject && selectedEpic ? `?project=${selectedProject}&epic=${selectedEpic}` : ''}`}
+                href={`${ROUTES.SCRUM_MASTER}/user-stories/new${selectedProject ? `?project=${selectedProject}${selectedEpic ? `&epic=${selectedEpic}` : ""}` : ""}`}
                 className="sm:hidden flex items-center gap-2 px-3 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-bold rounded-lg transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
@@ -601,257 +641,139 @@ export default function UserStoriesPage() {
             {userStories.map((us) => (
               <div
                 key={us.id}
-                className="bg-surface-dark border border-[#3b4754] rounded-xl p-6 hover:border-primary/50 transition-colors"
+                className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-[#3b4754] rounded-xl px-4 py-3 hover:border-primary/40 dark:hover:border-primary/50 transition-colors"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                {/* Ligne 1 : référence + titre + badges + actions */}
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {us.reference && (
-                        <span className="px-2 py-1 bg-primary/20 text-primary text-xs font-mono font-bold rounded">
+                        <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-mono font-bold rounded dark:bg-primary/20">
                           {us.reference}
                         </span>
                       )}
-                      <h3 className="text-white text-lg font-bold">{us.titre}</h3>
+                      <h3 className="text-slate-900 dark:text-white text-sm font-bold truncate">{us.titre}</h3>
                     </div>
-                    
                     {us.description && (
-                      <p className="text-[#9dabb9] text-sm mb-3">{us.description}</p>
+                      <p className="text-slate-400 dark:text-[#9dabb9] text-xs mt-0.5 truncate">{us.description}</p>
                     )}
-                    
-                    {us.criteresAcceptation && (
-                      <div className="mb-3">
-                        <p className="text-[#9dabb9] text-xs font-bold uppercase mb-1">
-                          Critères d'acceptation
-                        </p>
-                        <p className="text-white text-sm whitespace-pre-line">
-                          {us.criteresAcceptation}
-                        </p>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(us.statut)}`}>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${getStatusColor(us.statut)}`}>
                         {getStatusLabel(us.statut)}
                       </span>
-                      <span className={`text-xs font-bold ${getPriorityColor(us.priorite)}`}>
+                      <span className={`text-[10px] font-bold ${getPriorityColor(us.priorite)}`}>
                         {getPriorityLabel(us.priorite)}
                       </span>
-                      {us.points !== null && us.points !== undefined && (
-                        <span className="px-2 py-1 bg-[#283039] rounded text-xs font-bold text-white flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px]">speed</span>
-                          {us.points} pts
+                      {us.points != null && (
+                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 dark:bg-[#283039] rounded text-[10px] font-bold text-slate-600 dark:text-white">
+                          <span className="material-symbols-outlined text-[11px]">speed</span>
+                          {us.points}pts
                         </span>
                       )}
-                      {us.duree_estimee !== null && us.duree_estimee !== undefined && (
-                        <span className="px-2 py-1 bg-[#283039] rounded text-xs font-bold text-white flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px]">schedule</span>
+                      {us.duree_estimee != null && (
+                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 dark:bg-[#283039] rounded text-[10px] font-bold text-slate-600 dark:text-white">
+                          <span className="material-symbols-outlined text-[11px]">schedule</span>
                           {us.duree_estimee}h
                         </span>
                       )}
-                      {us.developer && (
-                        <span className="px-2 py-1 bg-primary/20 text-primary rounded text-xs font-bold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px]">code</span>
-                          {us.developer.nom}
-                        </span>
-                      )}
-                      {us.tester && (
-                        <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-xs font-bold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px]">bug_report</span>
-                          {us.tester.nom}
-                        </span>
-                      )}
                       {us.bug_ticket && us.statut === "a_corriger" && (
-                        <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-bold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px]">confirmation_number</span>
+                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-red-50 dark:bg-red-500/20 text-red-500 dark:text-red-300 rounded text-[10px] font-bold">
+                          <span className="material-symbols-outlined text-[11px]">confirmation_number</span>
                           {us.bug_ticket}
                         </span>
                       )}
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => openDetailsModal(us.id, us.epic_id)}
-                      className="p-2 hover:bg-primary/20 rounded-lg transition-colors"
+                      className="p-1.5 hover:bg-primary/10 dark:hover:bg-primary/20 rounded-lg transition-colors"
                       title="Voir détails"
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-primary">visibility</span>
+                      <span className="material-symbols-outlined text-primary text-[18px]">visibility</span>
                     </button>
                     <button
                       onClick={() => openEditModal(us.id, us.epic_id)}
-                      className="p-2 hover:bg-primary/20 rounded-lg transition-colors"
+                      className="p-1.5 hover:bg-primary/10 dark:hover:bg-primary/20 rounded-lg transition-colors"
                       title="Modifier"
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-primary">edit</span>
+                      <span className="material-symbols-outlined text-primary text-[18px]">edit</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Developer & Tester Assignment */}
-                <div className="pt-4 border-t border-[#3b4754] grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Ligne 2 : équipe + statut en une seule rangée */}
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#3b4754] flex items-center gap-2 flex-wrap">
                   {/* Développeur */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[#9dabb9] text-xs font-bold">Développeur:</span>
+                  <div className="flex items-center gap-1.5">
                     {us.developer ? (
-                      <span className="flex items-center gap-1 px-2 py-1 bg-primary/20 text-primary rounded text-xs font-bold">
-                        <span className="material-symbols-outlined text-[14px]">code</span>
-                        {us.developer.nom}
-                      </span>
+                      <div className="w-5 h-5 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+                        <span className="text-primary text-[9px] font-bold">{us.developer.nom.charAt(0).toUpperCase()}</span>
+                      </div>
                     ) : (
-                      <span className="text-[#9dabb9] text-xs italic">Non assigné</span>
+                      <span className="material-symbols-outlined text-slate-400 dark:text-[#9dabb9] text-[15px]">code</span>
                     )}
-                    {projectMembers.length > 0 && (
+                    {developerMembers.length > 0 ? (
                       <select
                         value=""
                         disabled={developerLoading === us.id}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val) handleAssignDeveloper(us.id, Number(val), us.epic_id);
-                        }}
-                        className="bg-[#283039] border border-[#3b4754] rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-primary disabled:opacity-50"
+                        onChange={(e) => { const v = e.target.value; if (v) handleAssignDeveloper(us.id, Number(v), us.epic_id); }}
+                        className="bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-[#3b4754] rounded-md px-2 py-1 text-slate-600 dark:text-[#9dabb9] text-xs focus:outline-none focus:border-primary hover:border-primary/50 disabled:opacity-50 cursor-pointer transition-colors"
                       >
-                        <option value="">
-                          {us.developer ? "Changer" : "Assigner"}
-                        </option>
-                        {projectMembers.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.nom} ({m.email})
-                          </option>
-                        ))}
+                        <option value="">{us.developer ? us.developer.nom : "Développeur"}</option>
+                        {developerMembers.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
                       </select>
+                    ) : (
+                      <span className="text-slate-400 dark:text-[#9dabb9] text-xs">{us.developer?.nom ?? "—"}</span>
                     )}
                   </div>
 
                   {/* Testeur QA */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[#9dabb9] text-xs font-bold">Testeur QA:</span>
+                  <div className="flex items-center gap-1.5">
                     {us.tester ? (
-                      <span className="flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-xs font-bold">
-                        <span className="material-symbols-outlined text-[14px]">bug_report</span>
-                        {us.tester.nom}
-                      </span>
+                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                        <span className="text-emerald-600 dark:text-emerald-400 text-[9px] font-bold">{us.tester.nom.charAt(0).toUpperCase()}</span>
+                      </div>
                     ) : (
-                      <span className="text-[#9dabb9] text-xs italic">Non assigné</span>
+                      <span className="material-symbols-outlined text-slate-400 dark:text-[#9dabb9] text-[15px]">bug_report</span>
                     )}
-                    {projectMembers.length > 0 && (
+                    {testerMembers.length > 0 ? (
                       <select
                         value=""
                         disabled={testerLoading === us.id}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val) handleAssignTester(us.id, Number(val), us.epic_id);
-                        }}
-                        className="bg-[#283039] border border-[#3b4754] rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-400 disabled:opacity-50"
+                        onChange={(e) => { const v = e.target.value; if (v) handleAssignTester(us.id, Number(v), us.epic_id); }}
+                        className="bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-[#3b4754] rounded-md px-2 py-1 text-slate-600 dark:text-[#9dabb9] text-xs focus:outline-none focus:border-emerald-500 hover:border-emerald-500/50 disabled:opacity-50 cursor-pointer transition-colors"
                       >
-                        <option value="">
-                          {us.tester ? "Changer" : "Assigner"}
-                        </option>
-                        {projectMembers.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.nom} ({m.email})
-                          </option>
-                        ))}
+                        <option value="">{us.tester ? us.tester.nom : "Testeur QA"}</option>
+                        {testerMembers.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
                       </select>
-                    )}
-                  </div>
-                </div>
-
-                {/* Assignee Section */}
-                <div className="pt-4 border-t border-[#3b4754]">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-[#9dabb9] text-xs font-bold">Responsable (Assignee):</span>
-                    {us.assignee ? (
-                      <div className="flex items-center gap-2">
-                        <span className="flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs font-bold">
-                          <span className="material-symbols-outlined text-[14px]">manage_accounts</span>
-                          {us.assignee.nom}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveAssignee(us.id, us.epic_id)}
-                          disabled={assigneeLoading === us.id}
-                          className="p-1 hover:bg-red-500/20 rounded transition-colors"
-                          title="Retirer l'assignee"
-                        >
-                          <span className="material-symbols-outlined text-red-400 text-[16px]">
-                            {assigneeLoading === us.id ? "hourglass_empty" : "person_remove"}
-                          </span>
-                        </button>
-                      </div>
                     ) : (
-                      <span className="text-[#9dabb9] text-xs italic">Non assigné</span>
-                    )}
-                    {projectMembers.length > 0 && (
-                      <select
-                        value=""
-                        disabled={assigneeLoading === us.id}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val) handleAssignAssignee(us.id, Number(val), us.epic_id);
-                        }}
-                        className="bg-[#283039] border border-[#3b4754] rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-purple-400 disabled:opacity-50"
-                      >
-                        <option value="">
-                          {us.assignee ? "Changer l'assignee" : "Assigner un responsable"}
-                        </option>
-                        {projectMembers.map((member) => (
-                          <option key={member.id} value={member.id}>
-                            {member.nom} ({member.email})
-                          </option>
-                        ))}
-                      </select>
+                      <span className="text-slate-400 dark:text-[#9dabb9] text-xs">{us.tester?.nom ?? "—"}</span>
                     )}
                   </div>
-                </div>
 
-                {/* Quick Status Change */}
-                <div className="flex items-center gap-2 pt-4 border-t border-[#3b4754]">
-                  <span className="text-[#9dabb9] text-xs font-bold mr-2">Changer le statut:</span>
-                  <button
-                    onClick={() => handleChangeStatus(us.id, "to_do", us.epic_id)}
-                    disabled={actionLoading === us.id || us.statut === "to_do"}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                      us.statut === "to_do"
-                        ? "bg-[#9dabb9]/20 text-[#9dabb9] cursor-not-allowed"
-                        : "bg-[#9dabb9]/10 text-[#9dabb9] hover:bg-[#9dabb9]/20"
-                    }`}
-                  >
-                    À faire
-                  </button>
-                  <button
-                    onClick={() => handleChangeStatus(us.id, "in_progress", us.epic_id)}
-                    disabled={actionLoading === us.id || us.statut === "in_progress"}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                      us.statut === "in_progress"
-                        ? "bg-primary/20 text-primary cursor-not-allowed"
-                        : "bg-primary/10 text-primary hover:bg-primary/20"
-                    }`}
-                  >
-                    En cours
-                  </button>
-                  <button
-                    onClick={() => handleChangeStatus(us.id, "ready_for_test", us.epic_id)}
-                    disabled={actionLoading === us.id || us.statut === "ready_for_test"}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                      us.statut === "ready_for_test"
-                        ? "bg-amber-500/20 text-amber-400 cursor-not-allowed"
-                        : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                    }`}
-                  >
-                    Pret pour test
-                  </button>
-                  <button
-                    onClick={() => handleChangeStatus(us.id, "done", us.epic_id)}
-                    disabled={actionLoading === us.id || us.statut === "done"}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                      us.statut === "done"
-                        ? "bg-[#0bda5b]/20 text-[#0bda5b] cursor-not-allowed"
-                        : "bg-[#0bda5b]/10 text-[#0bda5b] hover:bg-[#0bda5b]/20"
-                    }`}
-                  >
-                    Terminée
-                  </button>
+                  {/* Séparateur */}
+                  <div className="h-4 w-px bg-slate-200 dark:bg-[#3b4754] mx-1 hidden sm:block" />
+
+                  {/* Statut */}
+                  {([
+                    { value: "to_do",          label: "À faire",        base: "bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200 dark:bg-[#9dabb9]/10 dark:text-[#9dabb9] dark:hover:bg-[#9dabb9]/20 dark:border-[#9dabb9]/20", active: "bg-slate-200 text-slate-700 border-slate-300 dark:bg-[#9dabb9]/25 dark:text-[#9dabb9] dark:border-[#9dabb9]/50" },
+                    { value: "in_progress",    label: "En cours",       base: "bg-blue-50 text-blue-500 hover:bg-blue-100 border-blue-100 dark:bg-primary/10 dark:text-primary dark:hover:bg-primary/20 dark:border-primary/20",           active: "bg-blue-100 text-blue-600 border-blue-300 dark:bg-primary/25 dark:text-primary dark:border-primary/50" },
+                    { value: "ready_for_test", label: "Prêt pour test", base: "bg-amber-50 text-amber-500 hover:bg-amber-100 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 dark:border-amber-500/20", active: "bg-amber-100 text-amber-600 border-amber-300 dark:bg-amber-500/25 dark:text-amber-400 dark:border-amber-500/50" },
+                    { value: "done",           label: "Terminée",       base: "bg-green-50 text-green-500 hover:bg-green-100 border-green-100 dark:bg-[#0bda5b]/10 dark:text-[#0bda5b] dark:hover:bg-[#0bda5b]/20 dark:border-[#0bda5b]/20", active: "bg-green-100 text-green-600 border-green-300 dark:bg-[#0bda5b]/25 dark:text-[#0bda5b] dark:border-[#0bda5b]/50" },
+                  ] as const).map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() => handleChangeStatus(us.id, s.value, us.epic_id)}
+                      disabled={actionLoading === us.id || us.statut === s.value}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold border transition-all disabled:cursor-not-allowed ${us.statut === s.value ? s.active : s.base}`}
+                    >
+                      {us.statut === s.value && <span className="material-symbols-outlined text-[11px]">check</span>}
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}

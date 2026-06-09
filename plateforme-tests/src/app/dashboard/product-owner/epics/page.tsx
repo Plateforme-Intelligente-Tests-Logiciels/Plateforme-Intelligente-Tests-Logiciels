@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { ROUTES } from "@/lib/constants";
 import { EpicManagementModal } from "@/components/product-owner";
+import { ProjectSelectorCard } from "@/components/dashboard/ProjectSelectorCard";
 import { getMyProjects } from "@/features/projects/api";
 import {
   getEpics,
@@ -209,28 +210,23 @@ export default function EpicsManagementPage() {
       }
     >
       <div className="max-w-350 mx-auto flex flex-col gap-6">
+        <ProjectSelectorCard
+          projects={projects}
+          selectedProjectId={selectedProject?.id ?? null}
+          selectedProjectName={selectedProject?.nom ?? null}
+          onSelectProject={(id) => {
+            const project = projects.find((p) => p.id === id);
+            setSelectedProject(project || null);
+          }}
+          badgeText="Gestion des epics"
+          title="Projet actif"
+          description="Sélectionnez un projet pour afficher et gérer ses epics."
+          placeholder="-- Sélectionner un projet --"
+        />
+
         {/* Filters */}
         <div className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-[#3b4754] rounded-xl p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">Projet</label>
-              <select
-                value={selectedProject?.id || ""}
-                onChange={(e) => {
-                  const project = projects.find((p) => p.id === parseInt(e.target.value));
-                  setSelectedProject(project || null);
-                }}
-                className="w-full bg-[#1e293b] border border-slate-200 dark:border-[#3b4754] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Sélectionner un projet</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.nom}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-white mb-2">Statut</label>
               <select
@@ -293,6 +289,10 @@ export default function EpicsManagementPage() {
                         <span className="text-xs text-slate-500 dark:text-[#9dabb9]">
                           Priorité: {epic.priorite}
                         </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-400">
+                          <span className="material-symbols-outlined text-[13px]">menu_book</span>
+                          {epic.userstories?.length ?? 0} US
+                        </span>
                       </div>
                       <p className="text-sm text-slate-500 dark:text-[#9dabb9] mb-2">
                         {epic.description || "Aucune description"}
@@ -337,11 +337,25 @@ export default function EpicsManagementPage() {
                       </Button>
                     </div>
                   </div>
-                  {epic.user_stories && epic.user_stories.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-[#3b4754]">
-                      <p className="text-xs text-slate-500 dark:text-[#9dabb9]">
-                        User Stories: {epic.user_stories.length}
-                      </p>
+                  {epic.userstories && epic.userstories.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-[#3b4754] flex flex-wrap gap-2">
+                      {epic.userstories.slice(0, 3).map((us) => (
+                        <span
+                          key={us.id}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-700/50 text-slate-300 max-w-50 truncate"
+                          title={us.titre}
+                        >
+                          {us.reference && (
+                            <span className="font-mono mr-1 text-slate-500">{us.reference}</span>
+                          )}
+                          {us.titre}
+                        </span>
+                      ))}
+                      {epic.userstories.length > 3 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-700/50 text-slate-400">
+                          +{epic.userstories.length - 3} autres
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

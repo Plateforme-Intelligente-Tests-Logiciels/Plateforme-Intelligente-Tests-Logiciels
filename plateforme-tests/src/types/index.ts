@@ -148,6 +148,7 @@ export interface MemberSimple {
   nom: string;
   email: string;
   actif: boolean;
+  role?: RoleDetails;
 }
 
 export interface Attachment {
@@ -237,7 +238,7 @@ export interface Epic {
   priorite: number;
   businessValue?: string;
   statut: EpicStatus;
-  user_stories?: UserStorySummary[];
+  userstories?: UserStorySummary[];
 }
 
 export interface CreateEpicPayload {
@@ -340,6 +341,7 @@ export interface UserStory {
   developerNom?: string;
   testerId?: number;
   assigneeId?: number;
+  scrumMasterId?: number;
   developer?: {
     id: number;
     nom: string;
@@ -351,6 +353,11 @@ export interface UserStory {
     email: string;
   };
   assignee?: {
+    id: number;
+    nom: string;
+    email: string;
+  };
+  scrum_master?: {
     id: number;
     nom: string;
     email: string;
@@ -406,6 +413,10 @@ export interface AssignerTesteurPayload {
 
 export interface AssignerAssigneePayload {
   assignee_id: number;
+}
+
+export interface AssignerScrumMasterPayload {
+  scrum_master_id: number;
 }
 
 export interface ValiderUserStoryPayload {
@@ -741,6 +752,8 @@ export type NotificationType =
   | "USER_STORY_DELETED"
   | "USER_STORY_VALIDATED"
   | "USER_STORY_ASSIGNED_TO_ME"
+  | "USER_STORY_READY_FOR_TEST"
+  | "USER_STORY_NEEDS_FIX"
   | "SPRINT_CREATED"
   | "TEST_FAILED"
   | "TEST_PASSED"

@@ -61,6 +61,7 @@ Structure JSON attendue :
     "epics": [
         {
             "name": "Nom de l'epic",
+            "description": "Description de l'epic",
             "user_stories": [
                 {
                     "description": "En tant que ... je veux ... afin de ...",

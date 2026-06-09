@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -28,6 +28,7 @@ import { Project, Sprint, Epic, UserStory, SprintVelocite } from "@/types";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialogProvider";
 
 function SprintsPageContent() {
+  const router = useRouter();
   const confirmDialog = useConfirmDialog();
   const searchParams = useSearchParams();
   const projectFromQuery = searchParams.get("project");
@@ -598,11 +599,11 @@ function SprintsPageContent() {
             selectedProjectName={selectedProjectData?.nom ?? null}
             onSelectProject={(projectId) => {
               const targetUrl = `${ROUTES.SCRUM_MASTER}/sprints?project=${projectId}`;
-              window.open(targetUrl, "_blank", "noopener,noreferrer");
+              router.push(targetUrl);
             }}
             badgeText="Consultation des sprints"
             title="Projet"
-            description="Choisissez un projet pour l'ouvrir dans un nouvel onglet avec ses sprints."
+            description="Choisissez un projet pour consulter ses sprints."
             placeholder="-- Choisir un projet --"
           />
         )}
@@ -622,7 +623,7 @@ function SprintsPageContent() {
             <span className="material-symbols-outlined text-slate-500 dark:text-[#9dabb9] text-5xl mb-4">folder_open</span>
             <h3 className="text-slate-900 dark:text-white text-lg font-bold mb-2">Sélectionnez un projet</h3>
             <p className="text-slate-500 dark:text-[#9dabb9] text-sm">
-              Choisissez un projet pour l'ouvrir dans un nouvel onglet avec ses sprints.
+              Choisissez un projet pour consulter ses sprints.
             </p>
           </div>
         )}
@@ -746,13 +747,17 @@ function SprintsPageContent() {
                     <div className="flex items-center gap-2">
                       {(() => {
                         const canStart = getComputedStatus(sprint) === "planifie";
+                        const disabledTitle = "Sprint déjà démarré ou clôturé";
                         return (
                           <button
                             onClick={() => handleStartSprint(sprint.id)}
-                            disabled={actionLoading === sprint.id}
-                            className={`p-2 rounded-lg transition-colors ${canStart ? "hover:bg-[#0bda5b]/20" : "opacity-70"
-                              }`}
-                            title="Démarrer"
+                            disabled={!canStart || actionLoading === sprint.id}
+                            className={`p-2 rounded-lg transition-colors ${
+                              canStart
+                                ? "hover:bg-[#0bda5b]/20"
+                                : "opacity-40 cursor-not-allowed"
+                            }`}
+                            title={canStart ? "Démarrer" : disabledTitle}
                           >
                             <span className="material-symbols-outlined text-[#0bda5b]">play_arrow</span>
                           </button>

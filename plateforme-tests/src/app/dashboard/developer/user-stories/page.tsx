@@ -12,9 +12,14 @@ import { getMyProjectsAsMember } from "@/features/projects/api";
 import { getEpics } from "@/features/epics/api";
 import { changeUserStoryStatus, getUserStories } from "@/features/userstories/api";
 import { Project, Epic, UserStory, PrioriteUS, StatutUS } from "@/types";
-
-const selectFieldClass =
-  "w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 dark:border-[#3b4754] dark:bg-[#283039]";
+import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function UserStoriesPage() {
   const { user } = useAuthStore();
@@ -25,7 +30,6 @@ export default function UserStoriesPage() {
   const [userStories, setUserStories] = useState<UserStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [storiesLoading, setStoriesLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedStory, setSelectedStory] = useState<UserStory | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
@@ -41,14 +45,13 @@ export default function UserStoriesPage() {
   const loadProjects = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const data = await getMyProjectsAsMember();
       setProjects(data);
       if (data.length > 0) {
         setSelectedProject(data[0]);
       }
     } catch (err) {
-      setError("Erreur lors du chargement des projets");
+      toast.error("Erreur lors du chargement des projets");
       console.error("Erreur:", err);
     } finally {
       setLoading(false);
@@ -61,7 +64,7 @@ export default function UserStoriesPage() {
       setEpics(data);
       setSelectedEpicId(null);
     } catch (err) {
-      setError("Erreur lors du chargement des epics");
+      toast.error("Erreur lors du chargement des epics");
       console.error("Erreur:", err);
       setEpics([]);
       setSelectedEpicId(null);
@@ -71,7 +74,6 @@ export default function UserStoriesPage() {
   const loadUserStories = useCallback(
     async (projectId: number, epicId: number | null, epicsList: Epic[]) => {
       setStoriesLoading(true);
-      setError(null);
       try {
         let stories: UserStory[] = [];
         if (epicId) {
@@ -85,7 +87,7 @@ export default function UserStoriesPage() {
         const unique = Array.from(new Map(stories.map((s) => [s.id, s])).values());
         setUserStories(unique);
       } catch (err) {
-        setError("Erreur lors du chargement des user stories");
+        toast.error("Erreur lors du chargement des user stories");
         console.error("Erreur:", err);
         setUserStories([]);
       } finally {
@@ -184,12 +186,11 @@ export default function UserStoriesPage() {
   const handleChangeSelectedStoryStatus = async (nextStatus: StatutUS) => {
     if (!selectedProject || !selectedStory || !user) return;
     if (!isStoryAssignedToMe(selectedStory)) {
-      setError("Vous ne pouvez modifier que les user stories qui vous sont assignées.");
+      toast.error("Vous ne pouvez modifier que les user stories qui vous sont assignées.");
       return;
     }
 
     setStatusUpdating(true);
-    setError(null);
     try {
       const updated = await changeUserStoryStatus(
         selectedProject.id,
@@ -198,9 +199,20 @@ export default function UserStoriesPage() {
         { statut: nextStatus }
       );
       replaceStoryInList(updated);
+      setSelectedStory(null);
+      const statusLabels: Record<StatutUS, string> = {
+        to_do: "À faire",
+        in_progress: "En cours",
+        ready_for_test: "Prêt pour test",
+        a_corriger: "À corriger",
+        done: "Terminé",
+      };
+      toast.success(
+        `Statut mis à jour : "${statusLabels[nextStatus]}". Le scrum master et le testeur ont été notifiés.`
+      );
     } catch (err) {
       console.error("Erreur lors du changement de statut:", err);
-      setError("Erreur lors du changement de statut de la user story");
+      toast.error("Erreur lors du changement de statut de la user story");
     } finally {
       setStatusUpdating(false);
     }
@@ -251,23 +263,6 @@ export default function UserStoriesPage() {
       }
     >
       <div className="mx-auto flex max-w-350 flex-col gap-6">
-        {error && (
-          <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
-            <span className="material-symbols-outlined text-xl text-red-600 dark:text-red-400">error</span>
-            <div className="flex-1">
-              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setError(null)}
-              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
-              aria-label="Fermer le message d'erreur"
-            >
-              <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
-          </div>
-        )}
-
         <ProjectSelectorCard
           projects={projects.map((p) => ({ id: p.id, nom: p.nom }))}
           selectedProjectId={selectedProject?.id ?? null}
@@ -284,25 +279,23 @@ export default function UserStoriesPage() {
 
         {selectedProject && epics.length > 0 && (
           <div className="rounded-xl border border-border bg-surface-dark p-4">
-            <label htmlFor="dev-us-epic-filter" className="mb-2 block text-sm font-bold text-foreground">
-              Epic
-            </label>
-            <select
-              id="dev-us-epic-filter"
-              value={selectedEpicId ?? ""}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSelectedEpicId(value ? Number(value) : null);
-              }}
-              className={selectFieldClass}
+            <label className="mb-2 block text-sm font-bold text-foreground">Epic</label>
+            <Select
+              value={selectedEpicId?.toString() ?? "all"}
+              onValueChange={(value) => setSelectedEpicId(value === "all" ? null : Number(value))}
             >
-              <option value="">Tous les epics</option>
-              {epics.map((epic) => (
-                <option key={epic.id} value={epic.id}>
-                  {epic.titre}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Tous les epics" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les epics</SelectItem>
+                {epics.map((epic) => (
+                  <SelectItem key={epic.id} value={epic.id.toString()}>
+                    {epic.titre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="mt-2 text-xs text-muted-foreground">
               {selectedEpicId
                 ? `Stories de l'epic « ${epics.find((e) => e.id === selectedEpicId)?.titre ?? ""} »`

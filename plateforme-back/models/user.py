@@ -36,6 +36,7 @@ class Utilisateur(Base):
     userstories = relationship("UserStory", back_populates="developer", foreign_keys="UserStory.developerId")
     userstories_tester = relationship("UserStory", back_populates="tester", foreign_keys="UserStory.testerId")
     userstories_assignee = relationship("UserStory", back_populates="assignee", foreign_keys="UserStory.assigneeId")
+    userstories_scrum_master = relationship("UserStory", back_populates="scrum_master", foreign_keys="UserStory.scrumMasterId")
     sprints_scrum_master = relationship("Sprint", back_populates="scrum_master", foreign_keys="Sprint.scrumMasterId")
     
     # Validations

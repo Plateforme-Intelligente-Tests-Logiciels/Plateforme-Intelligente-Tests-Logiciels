@@ -487,7 +487,7 @@ export default function ProjectsManagementPage() {
                         {getEpicStatusLabel(epic.statut)}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-[#9dabb9]">
-                        {epic.user_stories?.length || 0} user story(ies)
+                        {epic.userstories?.length || 0} user story(ies)
                       </span>
                     </div>
                   </div>
