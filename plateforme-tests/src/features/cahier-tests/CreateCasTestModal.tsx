@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { CahierUserStoryOption, CreateCasTestPayload, TypeTest } from "@/types";
-import { createCasTest, getCahierUserStories } from "./api";
-import { getProjectById } from "@/features/projects/api";
+import { createCasTest, getCahierUserStories, getAssignableMembers } from "./api";
 import { AxiosError } from "axios";
 
 interface CreateCasTestModalProps {
@@ -38,7 +37,7 @@ export default function CreateCasTestModal({
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [loadingUserStories, setLoadingUserStories] = useState(false);
-  const [projectMembers, setProjectMembers] = useState<{ id: number; nom: string; email: string }[]>([]);
+  const [projectMembers, setProjectMembers] = useState<{ id: number; nom: string; email: string; role_code?: string }[]>([]);
   const [userStories, setUserStories] = useState<CahierUserStoryOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,8 +47,8 @@ export default function CreateCasTestModal({
     const loadProjectMembers = async () => {
       setLoadingMembers(true);
       try {
-        const project = await getProjectById(projectId);
-        setProjectMembers(project.membres ?? []);
+        const members = await getAssignableMembers(projectId, cahierId);
+        setProjectMembers(members);
       } catch (err) {
         console.error("Erreur lors du chargement des membres du projet:", err);
         setProjectMembers([]);
@@ -109,8 +108,17 @@ export default function CreateCasTestModal({
       onSuccess();
       handleClose();
     } catch (err: unknown) {
-      const apiError = err as AxiosError<{ detail?: string }>;
-      setError(apiError.response?.data?.detail || "Erreur lors de la création du cas de test");
+      const apiError = err as AxiosError<{ detail?: string | Array<{ msg: string }> }>;
+      const isTimeout = (err as any)?.code === "ECONNABORTED";
+      const rawDetail = apiError.response?.data?.detail;
+      const detail = Array.isArray(rawDetail)
+        ? rawDetail.map((e) => e.msg).join(", ")
+        : rawDetail;
+      setError(
+        isTimeout
+          ? "Le serveur ne répond pas. Vérifiez votre connexion et réessayez."
+          : detail || "Erreur lors de la création du cas de test"
+      );
     } finally {
       setLoading(false);
     }

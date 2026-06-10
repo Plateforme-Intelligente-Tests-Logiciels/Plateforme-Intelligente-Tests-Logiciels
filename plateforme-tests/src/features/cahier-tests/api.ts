@@ -132,6 +132,19 @@ export const getCahierVersions = async (
 };
 
 /**
+ * Récupérer les cas de tests tels qu'ils existaient à une version donnée
+ */
+export const getCasTestsAtVersion = async (
+  projectId: number,
+  version: string
+): Promise<CasTest[]> => {
+  const response = await axiosInstance.get<CasTest[]>(
+    `${getCahierBase(projectId)}/versions/${encodeURIComponent(version)}/cas-tests`
+  );
+  return response.data;
+};
+
+/**
  * ─── GESTION DES CAS DE TESTS ──────────────────────────────────────────────
  */
 

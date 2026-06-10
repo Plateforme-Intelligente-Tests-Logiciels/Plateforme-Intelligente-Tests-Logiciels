@@ -430,6 +430,13 @@ function AIBacklogReviewPageContent() {
                 {item.title}
               </p>
 
+              {/* Description (epics & modules) */}
+              {item.type !== "user_story" && item.description && (
+                <p className="text-slate-500 dark:text-[#9dabb9] text-xs mt-1.5 leading-relaxed">
+                  {item.description}
+                </p>
+              )}
+
               {/* User Story chips */}
               {item.type === "user_story" && (
                 <div className="flex items-center flex-wrap gap-2 mt-2">

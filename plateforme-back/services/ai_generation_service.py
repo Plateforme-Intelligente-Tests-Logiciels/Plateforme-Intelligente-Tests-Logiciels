@@ -244,6 +244,7 @@ class AIGenerationService:
                 generation_id=generation_id,
                 type_="epic",
                 title=epic.name,
+                description=epic.description,
             )
             if not epic_item:
                 raise GenerationCancelled()

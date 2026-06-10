@@ -235,6 +235,12 @@ export default function UserStoriesPage() {
         usData = usData.filter((us) => us.priorite === filters.priorite);
       }
 
+      usData.sort((a, b) => {
+        const numA = parseInt(a.reference?.split("-").pop() || "0", 10);
+        const numB = parseInt(b.reference?.split("-").pop() || "0", 10);
+        return numA - numB;
+      });
+
       setUserStories(usData);
     } catch (error: any) {
       setError("Impossible de charger les user stories");

@@ -29,7 +29,7 @@ from models.notification import TypeNotification
 from models.ai_generation import AIGeneration
 from models.rapports import RapportQA, IndicateurQualite, RecommandationQualite
 from models.scrum import Projet, Sprint, UserStory, Epic, Module
-from models.cahier_test_global import CahierTestGlobal, CasTest
+from models.cahier_test_global import CahierTestGlobal, CasTest, CahierVersionHistory
 from models.user import Utilisateur
 from repositories.ai_generation_repository import AIGenerationRepository
 from repositories.cahier_test_global_repository import CahierTestGlobalRepository
@@ -477,8 +477,8 @@ class CahierTestGlobalService:
         resolved_user_story_id = self._resolve_user_story_id(
             projet_id=projet_id,
             user_story_id=data.user_story_id,
-            epic=data.epic,
-            sous_epic=data.sous_epic,
+            epic=data.module,
+            sous_epic=data.sous_module,
             test_case=data.test_case,
         )
 
@@ -486,8 +486,8 @@ class CahierTestGlobalService:
             cahier_id=cahier_id,
             user_story_id=resolved_user_story_id,
             sprint=data.sprint or "",
-            module=data.epic or "",
-            sous_module=data.sous_epic or "",
+            module=data.module or "",
+            sous_module=data.sous_module or "",
             test_ref=f"TC-{next_order:03d}",
             test_case=data.test_case,
             test_purpose=data.test_purpose or "",
@@ -843,6 +843,24 @@ class CahierTestGlobalService:
             reverse=True,
         )
         return entries_sorted
+
+    def get_cas_tests_at_version(self, projet_id: int, version: str) -> list:
+        cahier = self.repo.get_by_projet(projet_id)
+        if not cahier:
+            raise HTTPException(status_code=404, detail="Aucun cahier de tests généré pour ce projet.")
+
+        version_entry = (
+            self.db.query(CahierVersionHistory)
+            .filter(
+                CahierVersionHistory.cahier_id == cahier.id,
+                CahierVersionHistory.version == version,
+            )
+            .first()
+        )
+        if not version_entry:
+            raise HTTPException(status_code=404, detail=f"Version {version} introuvable.")
+
+        return self.repo.list_cas_tests_at_version(cahier.id, version_entry.created_at)
 
     def get_cahier_detail(self, projet_id: int) -> CahierTestGlobal:
         cahier = self.repo.get_detail_by_projet(projet_id)

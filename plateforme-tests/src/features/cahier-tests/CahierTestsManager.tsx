@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import {
   CahierTestGlobalDetail,
+  CasTest,
   StatistiquesCahier,
   AIGeneration,
   ImportExcelResult,
@@ -21,6 +22,7 @@ import {
   importerExcel,
   getCasTestHistory,
   getCahierVersions,
+  getCasTestsAtVersion,
   downloadFile,
 } from "./api";
 import {
@@ -91,6 +93,8 @@ export default function CahierTestsManager({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyTimeline, setHistoryTimeline] = useState<CasHistoryTimelineItem[]>([]);
+  const [versionCasTests, setVersionCasTests] = useState<CasTest[] | null>(null);
+  const [versionCasTestsLoading, setVersionCasTestsLoading] = useState(false);
   const [rapport, setRapport] = useState<RapportQA | null>(null);
   const [rapportLoading, setRapportLoading] = useState(false);
   const [currentRapportGeneration, setCurrentRapportGeneration] = useState<AIGeneration | null>(null);
@@ -101,8 +105,8 @@ export default function CahierTestsManager({
     "pdf" | "word" | null
   >(null);
   const [updatingRapport, setUpdatingRapport] = useState(false);
-  const [enableAutoRefresh, setEnableAutoRefresh] = useState(true);
-  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number | null>(null);
+  const autoRefreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cahierLoadedRef = useRef(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const getExportFileNameBase = () => {
@@ -181,8 +185,8 @@ export default function CahierTestsManager({
     }
   };
 
-  const loadCahier = async () => {
-    setLoading(true);
+  const loadCahier = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const generations = await listGenerations(projectId);
@@ -254,6 +258,7 @@ export default function CahierTestsManager({
       }
     } finally {
       setLoading(false);
+      cahierLoadedRef.current = true;
     }
   };
 
@@ -264,6 +269,7 @@ export default function CahierTestsManager({
   };
 
   useEffect(() => {
+    cahierLoadedRef.current = false;
     loadCahier();
   }, [projectId]);
 
@@ -287,30 +293,47 @@ export default function CahierTestsManager({
     historyLoading,
   ]);
 
-  // Auto-refresh polling to keep UI in sync with backend changes
   useEffect(() => {
-    if (!cahier || !enableAutoRefresh) {
-      if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-        setAutoRefreshInterval(null);
-      }
+    if (!cahier) return;
+    if (selectedVersionIsCurrent) {
+      setVersionCasTests(null);
       return;
     }
+    setVersionCasTestsLoading(true);
+    getCasTestsAtVersion(projectId, selectedVersion)
+      .then((data) => setVersionCasTests(data))
+      .catch(() => setVersionCasTests([]))
+      .finally(() => setVersionCasTestsLoading(false));
+  }, [cahier, selectedVersion, selectedVersionIsCurrent, projectId]);
 
-    // Set up polling interval - refresh every 30 seconds if user story status might have changed
-    const interval = setInterval(() => {
-      // Only refresh if not currently generating or performing other operations
-      if (!generating && !creatingManual && !importing && !rapportLoading && !currentRapportGeneration) {
-        loadCahier();
+  // Auto-refresh polling every 30s — uses refs to avoid re-creating the interval on every render
+  useEffect(() => {
+    if (autoRefreshIntervalRef.current) {
+      clearInterval(autoRefreshIntervalRef.current);
+      autoRefreshIntervalRef.current = null;
+    }
+
+    autoRefreshIntervalRef.current = setInterval(() => {
+      if (
+        cahierLoadedRef.current &&
+        !generating &&
+        !creatingManual &&
+        !importing &&
+        !rapportLoading &&
+        !currentRapportGeneration
+      ) {
+        loadCahier(true);
       }
-    }, 30000); // 30 seconds
-
-    setAutoRefreshInterval(interval as any);
+    }, 30000);
 
     return () => {
-      clearInterval(interval);
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
     };
-  }, [cahier, enableAutoRefresh, generating, creatingManual, importing, rapportLoading, currentRapportGeneration]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   const handleGenerate = async () => {
     setShowRegenerateMenu(false);
@@ -866,14 +889,23 @@ export default function CahierTestsManager({
 
       {/* Tableau des cas de tests */}
       {!rapportOnly && cahier && (
-        <CasTestsTable
-          projectId={projectId}
-          cahierId={cahier.id}
-          casTests={cahier.cas_tests}
-          onRefresh={loadCahier}
-          readOnly={readOnly}
-          canAssignMember={canAssignMember}
-        />
+        <>
+          {!selectedVersionIsCurrent && versionCasTestsLoading && (
+            <div className="flex items-center justify-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          )}
+          {(!selectedVersionIsCurrent && !versionCasTestsLoading) || selectedVersionIsCurrent ? (
+            <CasTestsTable
+              projectId={projectId}
+              cahierId={cahier.id}
+              casTests={selectedVersionIsCurrent ? cahier.cas_tests : (versionCasTests ?? [])}
+              onRefresh={loadCahier}
+              readOnly={readOnly || !selectedVersionIsCurrent}
+              canAssignMember={canAssignMember && selectedVersionIsCurrent}
+            />
+          ) : null}
+        </>
       )}
     </div>
   );

@@ -194,6 +194,18 @@ class CahierTestGlobalRepository(BaseRepository[CahierTestGlobal]):
             .all()
         )
 
+    def list_cas_tests_at_version(self, cahier_id: int, version_created_at) -> List[CasTest]:
+        return (
+            self.db.query(CasTest)
+            .options(joinedload(CasTest.user_story))
+            .filter(
+                CasTest.cahier_id == cahier_id,
+                CasTest.date_creation <= version_created_at,
+            )
+            .order_by(CasTest.ordre.asc())
+            .all()
+        )
+
     def add_cas_test_history(self, payload: dict) -> CasTestHistory:
         entry = CasTestHistory(**payload)
         self.db.add(entry)

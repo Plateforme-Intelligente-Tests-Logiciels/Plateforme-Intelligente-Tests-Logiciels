@@ -108,6 +108,7 @@ class AIUserStory(BaseModel):
 
 class AIEpic(BaseModel):
     name:         str
+    description:  Optional[str]    = None
     user_stories: List[AIUserStory] = []
 
 

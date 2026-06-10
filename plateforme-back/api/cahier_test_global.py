@@ -364,6 +364,21 @@ async def list_cahier_versions(
     return svc.list_cahier_versions(projet_id)
 
 
+@router.get(
+    "/versions/{version}/cas-tests",
+    response_model=List[CasTestResponse],
+    summary="Cas de tests existants à une version donnée du cahier",
+)
+async def cas_tests_at_version(
+    projet_id: int,
+    version: str,
+    current_user: Annotated[Utilisateur, Depends(get_current_user_with_role)],
+    svc: CahierTestGlobalService = Depends(get_service),
+):
+    _ensure_cahier_allowed_role(current_user)
+    return svc.get_cas_tests_at_version(projet_id, version)
+
+
 # ─── Cas de tests ─────────────────────────────────────────────────────────────
 
 @router.get(
