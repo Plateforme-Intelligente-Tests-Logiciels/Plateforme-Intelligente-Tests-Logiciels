@@ -15,6 +15,7 @@ import {
   updateProject,
   deleteProject,
   archiveProject,
+  unarchiveProject,
   assignMembers,
 } from "@/features/projects/api";
 import { getEpics } from "@/features/epics/api";
@@ -161,18 +162,34 @@ export default function ProjectsManagementPage() {
       cancelText: "Annuler",
     });
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
       await archiveProject(projectId);
+      alert("Projet archivé avec succès");
       await fetchProjects();
-      if (selectedProject?.id === projectId) {
-        setSelectedProject(null);
-      }
+      if (selectedProject?.id === projectId) setSelectedProject(null);
     } catch (err) {
       alert("Erreur lors de l'archivage");
+    }
+  };
+
+  const handleUnarchiveProject = async (projectId: number) => {
+    const confirmed = await confirmDialog({
+      title: "Désarchiver le projet",
+      description: "Êtes-vous sûr de vouloir désarchiver ce projet ?",
+      confirmText: "Désarchiver",
+      cancelText: "Annuler",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await unarchiveProject(projectId);
+      alert("Projet désarchivé avec succès");
+      await fetchProjects();
+    } catch (err) {
+      alert("Erreur lors du désarchivage");
     }
   };
 
@@ -385,18 +402,33 @@ export default function ProjectsManagementPage() {
                         >
                           <span className="material-symbols-outlined text-[18px]">group_add</span>
                         </Button>
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleArchiveProject(project.id);
-                          }}
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
-                          title="Archiver le projet"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">archive</span>
-                        </Button>
+                        {project.statut === "archivé" ? (
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnarchiveProject(project.id);
+                            }}
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-green-600 hover:bg-green-500/10 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                            title="Désarchiver le projet"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">unarchive</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchiveProject(project.id);
+                            }}
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+                            title="Archiver le projet"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">archive</span>
+                          </Button>
+                        )}
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();

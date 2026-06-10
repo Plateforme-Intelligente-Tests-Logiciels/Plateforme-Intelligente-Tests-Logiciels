@@ -87,6 +87,16 @@ export const archiveProject = async (projectId: number): Promise<Project> => {
 };
 
 /**
+ * Unarchive a project
+ */
+export const unarchiveProject = async (projectId: number): Promise<Project> => {
+  const response = await axiosInstance.patch<Project>(
+    `${BASE_URL}/${projectId}/desarchiver`
+  );
+  return response.data;
+};
+
+/**
  * Assign members to a project
  */
 export const assignMembers = async (

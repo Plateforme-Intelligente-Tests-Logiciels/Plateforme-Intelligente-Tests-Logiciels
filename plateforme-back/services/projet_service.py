@@ -275,6 +275,15 @@ class ProjetService:
         )
         return archived
 
+    def desarchiver_projet(self, projet_id: int, current_user_id: int):
+        projet = self.get_projet(projet_id)
+        if projet.productOwnerId != current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Seul le Product Owner du projet peut le désarchiver.",
+            )
+        return self.repo.desarchiver(projet_id)
+
     def supprimer_projet(self, projet_id: int, current_user_id: int) -> None:
         projet = self.get_projet(projet_id)
         if projet.productOwnerId != current_user_id:

@@ -142,6 +142,16 @@ async def archiver_projet(
     return svc.archiver_projet(projet_id, current_user.id)
 
 
+@router.patch("/{projet_id}/desarchiver", response_model=ProjetResponse)
+async def desarchiver_projet(
+    projet_id: int,
+    current_user: Annotated[Utilisateur, Depends(get_current_user_with_role)],
+    svc: ProjetService = Depends(get_projet_service),
+):
+    """Désarchiver un projet — réservé au Product Owner du projet."""
+    return svc.desarchiver_projet(projet_id, current_user.id)
+
+
 @router.delete("/{projet_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def supprimer_projet(
     projet_id: int,

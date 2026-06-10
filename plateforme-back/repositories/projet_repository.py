@@ -43,6 +43,15 @@ class ProjetRepository(BaseRepository[Projet]):
             self.db.refresh(projet)
         return projet
 
+    def desarchiver(self, projet_id: int) -> Optional[Projet]:
+        """Désarchiver un projet (statut → 'actif')"""
+        projet = self.get_by_id(projet_id)
+        if projet:
+            projet.statut = "actif"
+            self.db.commit()
+            self.db.refresh(projet)
+        return projet
+
     def assigner_membres(self, projet_id: int, membre_ids: List[int]) -> Optional[Projet]:
         """Remplacer la liste des membres du projet"""
         projet = self.get_by_id(projet_id)
