@@ -4,16 +4,45 @@ import React, { useEffect, useState } from "react";
 import { AIGenerationDetail } from "@/types";
 import { getGeneration, cancelGeneration } from "./api";
 
+type FetchGenerationFn = (projectId: number, generationId: number) => Promise<AIGenerationDetail>;
+type CancelGenerationFn = (projectId: number, generationId: number) => Promise<{ generation_id: number; status: string }>;
+
 interface GenerationProgressProps {
   projectId: number;
   generationId: number;
   onComplete: () => void;
+  title?: string;
+  loadingLabel?: string;
+  progressLabel?: string;
+  stepsLabel?: string;
+  cancelButtonLabel?: string;
+  cancellingLabel?: string;
+  closeButtonLabel?: string;
+  failedLabel?: string;
+  cancelledLabel?: string;
+  successLabel?: string;
+  allowCancel?: boolean;
+  fetchGeneration?: FetchGenerationFn;
+  cancelGenerationFn?: CancelGenerationFn;
 }
 
 export default function GenerationProgress({
   projectId,
   generationId,
   onComplete,
+  title = "Génération du Cahier de Tests",
+  loadingLabel = "Chargement de la progression...",
+  progressLabel = "Progression",
+  stepsLabel = "Étapes de génération",
+  cancelButtonLabel = "Annuler",
+  cancellingLabel = "Annulation...",
+  closeButtonLabel = "Fermer",
+  failedLabel = "La génération a échoué. Consultez les logs ci-dessus pour plus de détails.",
+  cancelledLabel = "Génération annulée. Les éléments déjà produits sont conservés.",
+  successLabel = "Génération terminée !",
+  allowCancel = true,
+  fetchGeneration = getGeneration,
+  cancelGenerationFn = cancelGeneration,
 }: GenerationProgressProps) {
   const [generation, setGeneration] = useState<AIGenerationDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,9 +51,9 @@ export default function GenerationProgress({
   const handleCancel = async () => {
     setIsCancelling(true);
     try {
-      await cancelGeneration(projectId, generationId);
+      await cancelGenerationFn(projectId, generationId);
       // Refresh to show cancelled status
-      const data = await getGeneration(projectId, generationId);
+      const data = await fetchGeneration(projectId, generationId);
       setGeneration(data);
       setIsCancelling(false);
     } catch (error) {
@@ -38,7 +67,7 @@ export default function GenerationProgress({
 
     const fetchProgress = async () => {
       try {
-        const data = await getGeneration(projectId, generationId);
+        const data = await fetchGeneration(projectId, generationId);
         setGeneration(data);
         setLoading(false);
 
@@ -65,13 +94,13 @@ export default function GenerationProgress({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [projectId, generationId, onComplete]);
+  }, [projectId, generationId, onComplete, fetchGeneration]);
 
   if (loading || !generation) {
     return (
       <div className="bg-surface-dark rounded-lg border border-[#3b4754] p-6 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-[#9dabb9]">Chargement de la progression...</p>
+        <p className="text-[#9dabb9]">{loadingLabel}</p>
       </div>
     );
   }
@@ -111,7 +140,7 @@ export default function GenerationProgress({
   return (
     <div className="bg-surface-dark rounded-lg border border-[#3b4754] p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">Génération du Cahier de Tests</h3>
+        <h3 className="text-lg font-semibold text-white">{title}</h3>
         <div className="flex items-center gap-3">
           <span className={`font-medium ${getStatusColor()}`}>
             {getStatusText()}
@@ -120,9 +149,10 @@ export default function GenerationProgress({
             <button
               onClick={handleCancel}
               disabled={isCancelling}
+              hidden={!allowCancel}
               className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-500 text-white rounded-lg font-medium text-sm transition-colors"
             >
-              {isCancelling ? "Annulation..." : "Annuler"}
+              {isCancelling ? cancellingLabel : cancelButtonLabel}
             </button>
           )}
           {(generation.status === "cancelled" || generation.status === "failed") && (
@@ -130,7 +160,7 @@ export default function GenerationProgress({
               onClick={onComplete}
               className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium text-sm transition-colors"
             >
-              Fermer
+              {closeButtonLabel}
             </button>
           )}
         </div>
@@ -139,7 +169,7 @@ export default function GenerationProgress({
       {/* Barre de progression */}
       <div className="mb-6">
         <div className="flex items-center justify-between text-sm mb-2">
-          <span className="text-white">Progression</span>
+          <span className="text-white">{progressLabel}</span>
           <span className="font-medium text-white">{generation.progress}%</span>
         </div>
         <div className="w-full bg-[#283039] rounded-full h-3 overflow-hidden">
@@ -161,7 +191,7 @@ export default function GenerationProgress({
       {/* Logs */}
       <div className="space-y-2">
         <h4 className="text-sm font-semibold text-white mb-3">
-          Étapes de génération
+          {stepsLabel}
         </h4>
         <div className="max-h-64 overflow-y-auto space-y-2">
           {generation.logs && generation.logs.length > 0 ? (
@@ -174,9 +204,9 @@ export default function GenerationProgress({
                   {log.progress}%
                 </span>
                 <div className="flex-1">
-                  <p className="text-white">{log.message}</p>
+                  <pre className="text-white whitespace-pre-wrap">{log.message}</pre>
                   <p className="text-xs text-[#9dabb9] mt-1">
-                    {new Date(log.created_at).toLocaleTimeString()}
+                    {new Date(log.created_at.endsWith('Z') ? log.created_at : log.created_at + 'Z').toLocaleTimeString()}
                   </p>
                 </div>
               </div>
@@ -191,15 +221,20 @@ export default function GenerationProgress({
       {generation.status === "failed" && (
         <div className="mt-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
           <p className="text-sm text-red-700">
-            La génération a échoué. Consultez les logs ci-dessus pour plus de détails.
+            {failedLabel}
           </p>
         </div>
       )}
       {generation.status === "cancelled" && (
         <div className="mt-4 p-3 bg-orange-50 border-l-4 border-orange-500 rounded">
           <p className="text-sm text-orange-700">
-            ✓ Génération annulée. Les éléments du backlog existants sont saufs et inchangés. Les items générés avant l'annulation sont conservés.
+            {cancelledLabel}
           </p>
+        </div>
+      )}
+      {generation.status === "completed" && (
+        <div className="mt-4 p-3 bg-green-50 border-l-4 border-green-500 rounded">
+          <p className="text-sm text-green-700">{successLabel}</p>
         </div>
       )}
     </div>

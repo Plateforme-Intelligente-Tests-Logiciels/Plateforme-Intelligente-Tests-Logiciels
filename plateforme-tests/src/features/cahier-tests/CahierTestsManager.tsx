@@ -25,9 +25,13 @@ import {
 } from "./api";
 import {
   affinerRecommandations,
+  cancelRapportQAGeneration,
   exporterRapportQAPdf,
   exporterRapportQAWord,
   genererRapportQA,
+  getRapportQAGeneration,
+  listRapportQAGenerations,
+  startRapportQAGeneration,
   getRapportQA,
   updateRapportQA,
 } from "@/features/rapports/api";
@@ -89,6 +93,7 @@ export default function CahierTestsManager({
   const [historyTimeline, setHistoryTimeline] = useState<CasHistoryTimelineItem[]>([]);
   const [rapport, setRapport] = useState<RapportQA | null>(null);
   const [rapportLoading, setRapportLoading] = useState(false);
+  const [currentRapportGeneration, setCurrentRapportGeneration] = useState<AIGeneration | null>(null);
   const [generatingRapportMode, setGeneratingRapportMode] = useState<
     "manuelle" | "ai" | null
   >(null);
@@ -212,6 +217,15 @@ export default function CahierTestsManager({
       setHistoryTimeline([]);
       setHistoryError(null);
 
+      const aiGenerations = await listRapportQAGenerations(projectId, cahierData.id);
+      const activeRapportGeneration = aiGenerations.find(
+        (generation) =>
+          generation.type === "generate_qa_report" &&
+          (generation.status === "pending" || generation.status === "processing")
+      );
+      setCurrentRapportGeneration(activeRapportGeneration ?? null);
+      setGeneratingRapportMode(activeRapportGeneration ? "ai" : null);
+
       setRapportLoading(true);
       try {
         const rapportData = await getRapportQA(projectId, cahierData.id);
@@ -241,6 +255,12 @@ export default function CahierTestsManager({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRapportGenerationComplete = () => {
+    setCurrentRapportGeneration(null);
+    setGeneratingRapportMode(null);
+    void loadCahier();
   };
 
   useEffect(() => {
@@ -280,7 +300,7 @@ export default function CahierTestsManager({
     // Set up polling interval - refresh every 30 seconds if user story status might have changed
     const interval = setInterval(() => {
       // Only refresh if not currently generating or performing other operations
-      if (!generating && !creatingManual && !importing && !rapportLoading) {
+      if (!generating && !creatingManual && !importing && !rapportLoading && !currentRapportGeneration) {
         loadCahier();
       }
     }, 30000); // 30 seconds
@@ -290,7 +310,7 @@ export default function CahierTestsManager({
     return () => {
       clearInterval(interval);
     };
-  }, [cahier, enableAutoRefresh, generating, creatingManual, importing, rapportLoading]);
+  }, [cahier, enableAutoRefresh, generating, creatingManual, importing, rapportLoading, currentRapportGeneration]);
 
   const handleGenerate = async () => {
     setShowRegenerateMenu(false);
@@ -344,23 +364,32 @@ export default function CahierTestsManager({
     if (!cahier) return;
     setGeneratingRapportMode(mode);
     try {
+      if (mode === "ai") {
+        const generation = await startRapportQAGeneration(projectId, cahier.id, {
+          mode_generation: mode,
+          ...payload,
+        });
+        setCurrentRapportGeneration(generation);
+        return;
+      }
+
       const rapportData = await genererRapportQA(projectId, cahier.id, {
         mode_generation: mode,
         ...payload,
       });
       setRapport(rapportData);
-      alert(
-        mode === "ai"
-          ? "Rapport QA généré avec IA avec succès."
-          : "Rapport QA généré manuellement avec succès."
-      );
+      alert("Rapport QA généré manuellement avec succès.");
     } catch (err: any) {
       alert(
         err.response?.data?.detail ||
           "Erreur lors de la génération du rapport QA."
       );
-    } finally {
+      setCurrentRapportGeneration(null);
       setGeneratingRapportMode(null);
+    } finally {
+      if (mode !== "ai") {
+        setGeneratingRapportMode(null);
+      }
     }
   };
 
@@ -788,6 +817,27 @@ export default function CahierTestsManager({
             </div>
           )}
         </div>
+      )}
+
+      {currentRapportGeneration && (
+        <GenerationProgress
+          projectId={projectId}
+          generationId={currentRapportGeneration.id}
+          onComplete={handleRapportGenerationComplete}
+          title="Génération du Rapport QA"
+          loadingLabel="Chargement de la progression du rapport QA..."
+          progressLabel="Progression"
+          stepsLabel="Étapes de génération du rapport"
+          cancelButtonLabel="Annuler"
+          cancellingLabel="Annulation..."
+          closeButtonLabel="Fermer"
+          failedLabel="La génération du rapport QA a échoué. Consultez les logs ci-dessus pour plus de détails."
+          cancelledLabel="Génération du rapport QA annulée. Les données déjà produites sont conservées."
+          successLabel="Rapport QA généré avec succès."
+          allowCancel
+          fetchGeneration={(_, generationId) => getRapportQAGeneration(projectId, cahier!.id, generationId)}
+          cancelGenerationFn={(_, generationId) => cancelRapportQAGeneration(projectId, cahier!.id, generationId)}
+        />
       )}
 
       {/* Rapport QA */}

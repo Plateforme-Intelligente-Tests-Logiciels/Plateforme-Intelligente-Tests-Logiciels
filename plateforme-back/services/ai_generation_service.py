@@ -45,12 +45,23 @@ Règles strictes :
 2. Pour chaque Epic, génère les User Stories au format :
    "En tant que [rôle], je veux [objectif], afin de [bénéfice]."
 
-4. Chaque User Story doit obligatoirement contenir :
+3. Chaque User Story doit obligatoirement contenir :
    - Priority : "High", "Medium" ou "Low"
    - Story Points : entier de 1 à 13
    - Sprint : numéro de sprint (1 à 6)
    - Duration : estimation en heures (ex : 2h, 4h, 8h, 16h)
    - Acceptance Criteria : liste de 3 à 5 phrases courtes et vérifiables
+
+4. Le nombre d'epics et de user stories doit être proportionnel à la taille réelle du projet.
+    N'utilise pas un nombre fixe de user stories.
+
+    Règles de volumétrie indicatives :
+    - petit projet : 2 à 4 epics, 5 à 10 user stories
+    - projet moyen : 3 à 6 epics, 11 à 18 user stories
+    - grand projet : 5 à 10 epics, 19 à 35 user stories
+
+    Découpe le cahier des charges par fonctionnalités, acteurs, flux métier, intégrations et contraintes.
+    Si le projet est vaste ou très fonctionnel, génère plus de user stories pour couvrir tous les cas importants.
 
 5. Retourne UNIQUEMENT un objet JSON valide.
    Aucun texte avant ou après.
@@ -87,6 +98,15 @@ Voici le cahier des charges du projet :
 ---
 {content}
 ---
+
+Analyse du projet :
+- Taille estimée : {project_size}
+- Score de complexité : {complexity_score}/5
+- Indicateurs détectés : {detected_signals}
+- Longueur du cahier des charges : {content_length} caractères
+
+Consigne de génération : adapte le nombre d'epics et de user stories à cette taille estimée.
+Ne limite pas artificiellement la génération à 13 user stories si le projet est plus vaste.
 
 Génère le backlog Scrum complet en JSON selon le schéma demandé.
 """
@@ -372,11 +392,62 @@ class AIGenerationService:
 
         raise RuntimeError("Échec après toutes les tentatives.")
 
+    @staticmethod
+    def _analyser_taille_projet(content: str) -> dict[str, object]:
+        """Estimate the project size from the requirement document so generation can scale."""
+        length = len(content)
+
+        bullet_lines = re.findall(r"(?im)^\s*(?:[-*•]|\d+[.)])\s+.+$", content)
+        section_lines = re.findall(r"(?im)^(?:#{1,6}\s+|[A-Z][A-Z0-9\s/_-]{4,}:\s+).+$", content)
+        actor_hits = re.findall(
+            r"(?i)\b(en tant que|utilisateur|admin|administrateur|client|manager|scrum master|product owner|qa|développeur|developer)\b",
+            content,
+        )
+        integration_hits = re.findall(r"(?i)\b(api|intégration|integration|service externe|oauth|authentification|paiement|notification|email|pdf|export|import)\b", content)
+
+        score = 0
+        if length >= 15000:
+            score += 2
+        elif length >= 8000:
+            score += 1
+
+        if len(bullet_lines) >= 30:
+            score += 2
+        elif len(bullet_lines) >= 12:
+            score += 1
+
+        if len(section_lines) >= 10:
+            score += 1
+        if len(actor_hits) >= 6:
+            score += 1
+        if len(integration_hits) >= 4:
+            score += 1
+
+        if score <= 1:
+            size = "petit"
+        elif score <= 3:
+            size = "moyen"
+        else:
+            size = "grand"
+
+        signals = (
+            f"{len(bullet_lines)} items listés, {len(section_lines)} sections, "
+            f"{len(actor_hits)} acteurs/roles, {len(integration_hits)} indices d'intégration"
+        )
+
+        return {
+            "project_size": size,
+            "complexity_score": score,
+            "detected_signals": signals,
+            "content_length": length,
+        }
+
     def _appeler_google(self, content: str, api_key: str) -> str:
         """Appel unique vers l'API OpenRouter (compatible OpenAI)."""
         import requests
 
-        full_prompt = USER_PROMPT_TEMPLATE.format(content=content)
+        project_profile = self._analyser_taille_projet(content)
+        full_prompt = USER_PROMPT_TEMPLATE.format(content=content, **project_profile)
 
         payload = {
             "model": AI_MODEL,

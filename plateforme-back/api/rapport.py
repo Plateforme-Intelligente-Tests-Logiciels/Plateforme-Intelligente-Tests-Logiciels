@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from core.rbac.constants import (
@@ -9,6 +9,7 @@ from core.rbac.constants import (
     ROLE_SCRUM_MASTER,
     ROLE_TESTEUR_QA,
 )
+from core.rbac.decorators import require_role
 from core.rbac.dependencies import get_current_user_with_role
 from db.database import get_db
 from models.user import Utilisateur
@@ -18,6 +19,7 @@ from schemas.rapport import (
     RapportQAResponse,
     UpdateRapportQARequest,
 )
+from schemas.ai_generation import AIGenerationDetailResponse, AIGenerationResponse
 from services.rapport_service import RapportService
 
 router = APIRouter(
@@ -74,6 +76,84 @@ async def generer_rapport_qa(
         version=body.version,
         recommandations=body.recommandations,
     )
+
+
+@router.post(
+    "/cahier/{cahier_id}/generate/ai",
+    response_model=AIGenerationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Lancer la génération IA du rapport QA avec suivi de progression",
+)
+async def generer_rapport_qa_ai(
+    projet_id: int,
+    cahier_id: int,
+    background_tasks: BackgroundTasks,
+    body: GenererRapportQARequest,
+    current_user: Annotated[Utilisateur, Depends(get_current_user_with_role)],
+    svc: RapportService = Depends(get_service),
+):
+    _ensure_rapport_allowed_role(current_user)
+    _ensure_testeur_only(current_user)
+    generation = svc.demarrer_generation_qa(cahier_id, projet_id, current_user.id)
+    background_tasks.add_task(
+        svc.executer_generation_qa,
+        generation.id,
+        cahier_id,
+        projet_id,
+        current_user.id,
+        body.mode_generation,
+        body.version,
+        body.recommandations,
+    )
+    return generation
+
+
+@router.get(
+    "/cahier/{cahier_id}/generations",
+    response_model=List[AIGenerationResponse],
+    summary="Lister les générations IA du rapport QA",
+)
+async def lister_generations_qa(
+    projet_id: int,
+    cahier_id: int,
+    current_user: Annotated[Utilisateur, Depends(get_current_user_with_role)],
+    svc: RapportService = Depends(get_service),
+):
+    _ensure_rapport_allowed_role(current_user)
+    return svc.lister_generations_qa(cahier_id, projet_id)
+
+
+@router.get(
+    "/cahier/{cahier_id}/generations/{generation_id}",
+    response_model=AIGenerationDetailResponse,
+    summary="Détail d'une génération IA du rapport QA",
+)
+async def detail_generation_qa(
+    projet_id: int,
+    cahier_id: int,
+    generation_id: int,
+    current_user: Annotated[Utilisateur, Depends(get_current_user_with_role)],
+    svc: RapportService = Depends(get_service),
+):
+    _ensure_rapport_allowed_role(current_user)
+    return svc.get_generation_qa(generation_id, cahier_id, projet_id)
+
+
+@router.post(
+    "/cahier/{cahier_id}/generations/{generation_id}/cancel",
+    summary="Annuler une génération IA du rapport QA",
+)
+@require_role(ROLE_TESTEUR_QA)
+async def cancel_generation_qa(
+    projet_id: int,
+    cahier_id: int,
+    generation_id: int,
+    current_user: Annotated[Utilisateur, Depends(get_current_user_with_role)],
+    svc: RapportService = Depends(get_service),
+):
+    _ensure_rapport_allowed_role(current_user)
+    _ensure_testeur_only(current_user)
+    return svc.cancel_generation_qa(generation_id, cahier_id, projet_id)
 
 
 @router.patch(

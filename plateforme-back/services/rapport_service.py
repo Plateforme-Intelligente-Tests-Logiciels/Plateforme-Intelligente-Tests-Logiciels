@@ -2,14 +2,16 @@ import io
 import json
 import re
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 import requests
+import traceback
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.config import AI_API_KEY, AI_API_URL, AI_MODEL
+from models.ai_generation import AIGeneration
 from core.rbac.constants import (
     ROLE_DEVELOPPEUR,
     ROLE_PRODUCT_OWNER,
@@ -20,6 +22,7 @@ from models.cahier_test_global import CahierTestGlobal, CasTest, CasTestHistory
 from models.notification import TypeNotification
 from models.rapports import IndicateurQualite, RapportQA, RecommandationQualite
 from models.scrum import Projet
+from repositories.ai_generation_repository import AIGenerationRepository
 from services.api_key_service import APIKeyService
 from services.notification_service import NotificationService
 
@@ -76,9 +79,14 @@ Compatibilite:
 """
 
 
+class GenerationCancelled(Exception):
+    pass
+
+
 class RapportService:
     def __init__(self, db: Session):
         self.db = db
+        self.ai_repo = AIGenerationRepository(db)
         self.notification_service = NotificationService(db)
         self.api_key_service = APIKeyService(db)
 
@@ -321,6 +329,185 @@ class RapportService:
             priorite="moyenne",
             exclude_user_id=exclude_user_id,
         )
+
+    def _ensure_generation_active(self, generation_id: int) -> None:
+        gen = self.ai_repo.get_by_id(generation_id)
+        if not gen:
+            raise HTTPException(status_code=404, detail="Génération introuvable.")
+        if gen.status == "cancelled":
+            raise GenerationCancelled()
+
+    def demarrer_generation_qa(
+        self,
+        cahier_id: int,
+        projet_id: int,
+        user_id: int,
+    ) -> AIGeneration:
+        self._verifier_appartenance(cahier_id, projet_id)
+        return self.ai_repo.create_generation(projet_id, user_id, "generate_qa_report")
+
+    def lister_generations_qa(self, cahier_id: int, projet_id: int) -> List[AIGeneration]:
+        self._verifier_appartenance(cahier_id, projet_id)
+        return (
+            self.db.query(AIGeneration)
+            .filter(
+                AIGeneration.projet_id == projet_id,
+                AIGeneration.type == "generate_qa_report",
+            )
+            .order_by(AIGeneration.created_at.desc())
+            .all()
+        )
+
+    def get_generation_qa(self, generation_id: int, cahier_id: int, projet_id: int) -> AIGeneration:
+        self._verifier_appartenance(cahier_id, projet_id)
+        gen = self.ai_repo.get_detail(generation_id)
+        if not gen or gen.projet_id != projet_id or gen.type != "generate_qa_report":
+            raise HTTPException(status_code=404, detail="Génération introuvable.")
+        return gen
+
+    def cancel_generation_qa(self, generation_id: int, cahier_id: int, projet_id: int) -> dict:
+        self._verifier_appartenance(cahier_id, projet_id)
+        gen = self.ai_repo.get_by_id(generation_id)
+        if not gen or gen.projet_id != projet_id or gen.type != "generate_qa_report":
+            raise HTTPException(status_code=404, detail="Génération introuvable.")
+        if gen.status == "completed":
+            return {"generation_id": generation_id, "status": "completed", "message": "Génération déjà terminée"}
+        if gen.status == "failed":
+            return {"generation_id": generation_id, "status": "failed", "message": "Génération déjà échouée"}
+
+        self.ai_repo.update_status(generation_id, "cancelled", gen.progress)
+        self.ai_repo.add_log(generation_id, "cancelled", "Génération annulée par l'utilisateur", gen.progress or 0)
+        return {"generation_id": generation_id, "status": "cancelled", "message": "Génération annulée avec succès"}
+
+    def executer_generation_qa(
+        self,
+        generation_id: int,
+        cahier_id: int,
+        projet_id: int,
+        user_id: int,
+        mode_generation: str = "ai",
+        version: Optional[str] = None,
+        recommandations: Optional[str] = None,
+    ) -> None:
+        try:
+            self._ensure_generation_active(generation_id)
+            self.ai_repo.update_status(generation_id, "processing", 5)
+            self.ai_repo.add_log(generation_id, "init", "Démarrage de la génération du rapport QA…", 5)
+
+            self._ensure_generation_active(generation_id)
+            cahier = self._verifier_appartenance(cahier_id, projet_id)
+            stats = self._compute_rapport_stats(cahier)
+
+            self.ai_repo.update_progress(generation_id, 18)
+            self.ai_repo.add_log(
+                generation_id,
+                "reading_metrics",
+                f"{stats['executes']} tests exécutés détectés sur {stats['total']} au total.",
+                18,
+            )
+
+            self._ensure_generation_active(generation_id)
+            self.ai_repo.update_progress(generation_id, 35)
+            self.ai_repo.add_log(
+                generation_id,
+                "sending_prompt",
+                "Analyse des indicateurs QA par le modèle IA…",
+                35,
+            )
+
+            generated_payload = self._generer_rapport_qa_ia(cahier, stats, user_id)
+            if recommandations and mode_generation == "manuelle":
+                generated_payload["recommandations"] = recommandations
+
+            self._ensure_generation_active(generation_id)
+            self.ai_repo.update_progress(generation_id, 70)
+            self.ai_repo.add_log(
+                generation_id,
+                "parsing",
+                "Réponse IA reçue, préparation de la persistance du rapport…",
+                70,
+            )
+
+            rapport = self.db.query(RapportQA).filter(RapportQA.cahierId == cahier_id).first()
+            next_version = version or self._increment_report_minor_version(rapport.version if rapport else None)
+
+            if not rapport:
+                rapport = RapportQA(
+                    cahierId=cahier_id,
+                    version=next_version,
+                    dateGeneration=datetime.utcnow(),
+                    statut=generated_payload.get("statut") or "brouillon",
+                    tauxReussite=stats["taux_reussite"],
+                    nombreTestsExecutes=stats["executes"],
+                    nombreTestsReussis=stats["reussi"],
+                    nombreTestsEchoues=stats["echoue"],
+                    recommandations=generated_payload.get("recommandations") or "",
+                )
+                self.db.add(rapport)
+                self.db.flush()
+            else:
+                rapport.version = next_version
+                rapport.dateGeneration = datetime.utcnow()
+                rapport.statut = generated_payload.get("statut") or "brouillon"
+                rapport.tauxReussite = stats["taux_reussite"]
+                rapport.nombreTestsExecutes = stats["executes"]
+                rapport.nombreTestsReussis = stats["reussi"]
+                rapport.nombreTestsEchoues = stats["echoue"]
+                rapport.recommandations = generated_payload.get("recommandations") or ""
+
+            indicateur = rapport.indicateurs
+            if indicateur is None:
+                indicateur = IndicateurQualite(rapportId=rapport.id)
+                self.db.add(indicateur)
+
+            indicateur.tauxCouverture = float(generated_payload.get("taux_couverture") or stats["taux_couverture"])
+            indicateur.tauxReussite = float(generated_payload.get("taux_reussite") or stats["taux_reussite"])
+            indicateur.nombreAnomalies = int(generated_payload.get("nombre_anomalies") or stats["anomalies_total"])
+            indicateur.nombreAnomaliesCritiques = max(0, int(generated_payload.get("nombre_anomalies_critiques") or 0))
+            indicateur.indiceQualite = max(0.0, float(generated_payload.get("indice_qualite") or 0.0))
+            indicateur.tendance = generated_payload.get("tendance") or "stable"
+
+            self._sync_recommandations_qualite(
+                rapport,
+                generated_payload.get("recommandations_qualite") or [],
+            )
+
+            self.db.commit()
+            self.db.refresh(rapport)
+
+            self._ensure_generation_active(generation_id)
+            self.ai_repo.update_progress(generation_id, 95)
+            self.ai_repo.add_log(
+                generation_id,
+                "saving",
+                f"Rapport QA v{rapport.version} enregistré en base.",
+                95,
+            )
+
+            self.ai_repo.update_status(generation_id, "completed", 100)
+            self.ai_repo.add_log(
+                generation_id,
+                "done",
+                f"Génération terminée : rapport QA v{rapport.version} prêt.",
+                100,
+            )
+
+            self._notify_rapport_stakeholders(
+                projet_id=projet_id,
+                actor_user_id=user_id,
+                titre="Rapport QA genere",
+                message=f"Le rapport QA v{rapport.version} a ete genere pour le cahier {cahier_id}.",
+            )
+        except GenerationCancelled:
+            return
+        except Exception as exc:
+            try:
+                self.ai_repo.update_status(generation_id, "failed", 0)
+                tb = traceback.format_exc()
+                self.ai_repo.add_log(generation_id, "error", tb, 0)
+            except Exception:
+                pass
+            raise
 
     def _generer_rapport_qa_ia(self, cahier: CahierTestGlobal, stats: dict, user_id: Optional[int]) -> dict:
         prompt = (

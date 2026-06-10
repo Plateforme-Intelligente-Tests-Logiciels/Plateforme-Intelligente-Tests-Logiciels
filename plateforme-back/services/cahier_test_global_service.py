@@ -1543,8 +1543,8 @@ class CahierTestGlobalService:
             resolved_user_story_id = self._resolve_user_story_id(
                 projet_id=gen.projet_id,
                 user_story_id=cas.user_story_id,
-                module=module,
-                sous_module=sous_module,
+                epic=module,
+                sous_epic=sous_module,
                 test_case=test_case,
             )
             self.repo.add_cas_test(

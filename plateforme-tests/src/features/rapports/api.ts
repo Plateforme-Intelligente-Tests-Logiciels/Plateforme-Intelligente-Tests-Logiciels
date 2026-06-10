@@ -1,5 +1,7 @@
 import axiosInstance from "@/lib/axios";
 import {
+  AIGeneration,
+  AIGenerationDetail,
   GenererRapportQAPayload,
   RapportQA,
   UpdateRapportQAPayload,
@@ -27,6 +29,52 @@ export const genererRapportQA = async (
   const response = await axiosInstance.post<RapportQA>(
     `${getRapportBase(projectId, cahierId)}/generate`,
     payload
+  );
+  return response.data;
+};
+
+export const startRapportQAGeneration = async (
+  projectId: number,
+  cahierId: number,
+  payload: GenererRapportQAPayload
+): Promise<AIGeneration> => {
+  const response = await axiosInstance.post<AIGeneration>(
+    `${getRapportBase(projectId, cahierId)}/generate/ai`,
+    payload
+  );
+  return response.data;
+};
+
+export const listRapportQAGenerations = async (
+  projectId: number,
+  cahierId: number
+): Promise<AIGeneration[]> => {
+  const response = await axiosInstance.get<AIGeneration[]>(
+    `${getRapportBase(projectId, cahierId)}/generations`,
+    { suppressErrorLog: true }
+  );
+  return response.data;
+};
+
+export const getRapportQAGeneration = async (
+  projectId: number,
+  cahierId: number,
+  generationId: number
+): Promise<AIGenerationDetail> => {
+  const response = await axiosInstance.get<AIGenerationDetail>(
+    `${getRapportBase(projectId, cahierId)}/generations/${generationId}`,
+    { suppressErrorLog: true }
+  );
+  return response.data;
+};
+
+export const cancelRapportQAGeneration = async (
+  projectId: number,
+  cahierId: number,
+  generationId: number
+): Promise<{ generation_id: number; status: string }> => {
+  const response = await axiosInstance.post<{ generation_id: number; status: string }>(
+    `${getRapportBase(projectId, cahierId)}/generations/${generationId}/cancel`
   );
   return response.data;
 };
