@@ -172,7 +172,7 @@ class IndicateurQualite(Base):
     indiceQualite = Column(Float)
     tendance = Column(String)
 
-    rapportId = Column(Integer, ForeignKey("rapport_qa.id"))
+    rapportId = Column(Integer, ForeignKey("rapport_qa.id", ondelete="CASCADE"))
 
     # Relations
     rapport = relationship("RapportQA", back_populates="indicateurs")
@@ -189,7 +189,7 @@ class RecommandationQualite(Base):
     impact = Column(Float)
     statut = Column(String)
 
-    rapportId = Column(Integer, ForeignKey("rapport_qa.id"))
+    rapportId = Column(Integer, ForeignKey("rapport_qa.id", ondelete="CASCADE"))
 
     # Relations
     rapport = relationship("RapportQA", back_populates="recommandations_qualite")

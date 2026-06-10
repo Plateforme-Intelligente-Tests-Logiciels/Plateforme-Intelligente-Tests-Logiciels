@@ -107,7 +107,7 @@ class UserStory(Base):
     scrum_master = relationship("Utilisateur", back_populates="userstories_scrum_master", foreign_keys=[scrumMasterId])
     sprints = relationship("Sprint", secondary=sprint_userstory, back_populates="userstories")
     cahier_tests = relationship("CahierDeTests", back_populates="userstory", uselist=False, cascade="all, delete-orphan")
-    cas_tests = relationship("CasTest", back_populates="user_story")
+    cas_tests = relationship("CasTest", back_populates="user_story", cascade="all, delete")
     attachments = relationship("Attachment", back_populates="userstory", cascade="all, delete-orphan",
                                foreign_keys="Attachment.userstory_id")
 

@@ -146,11 +146,8 @@ export default function ProjectsManagementPage() {
 
     try {
       await deleteProject(projectId);
-        alert("Projet supprimé avec succès");
-      await fetchProjects();
-      if (selectedProject?.id === projectId) {
-        setSelectedProject(null);
-      }
+      alert("Projet supprimé avec succès");
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err) {
       alert("Erreur lors de la suppression");
     }
