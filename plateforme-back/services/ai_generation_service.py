@@ -101,7 +101,7 @@ Voici le cahier des charges du projet :
 
 Analyse du projet :
 - Taille estimée : {project_size}
-- Score de complexité : {complexity_score}/5
+- Score de complexité : {complexity_score}/7
 - Indicateurs détectés : {detected_signals}
 - Longueur du cahier des charges : {content_length} caractères
 
